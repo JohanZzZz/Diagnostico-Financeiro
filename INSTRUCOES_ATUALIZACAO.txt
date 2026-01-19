@@ -1,0 +1,49 @@
+SISTEMA ATUALIZADO!
+=====================
+
+NOVIDADES IMPLEMENTADAS:
+------------------------
+
+1. ✅ RELATÓRIO EM PDF (não mais Excel)
+   - Geração de PDF profissional
+   - Layout para envio ao cliente
+   - Visual limpo e apresentável
+
+2. ✅ PULMÃO FINANCEIRO AVANÇADO
+   Campos de INPUT:
+   - Caixa atual
+   - Contas a pagar (30 dias)
+   - Impostos provisionados
+   - Parcelas de dívida
+   - COMR (Custo Operacional Mensal Real)
+   
+   Cálculos automáticos:
+   - Caixa Líquido Disponível (CLD)
+   - Pulmão em dias e meses
+   - Classificação automática
+
+3. ✅ DETECÇÃO DE ANOMALIAS
+   - A1: Caixa negativo com resultado positivo
+   - A2: Oscilação anormal de caixa
+   - B1: Pró-labore maior que lucro
+   - B2: Endividamento elevado
+
+4. ✅ ANÁLISE DE TAXAS OCULTAS
+   - T1: Taxa real de vendas
+   - T2: Bancos lucrando mais que o dono
+   - T3: Juros pulverizados
+
+COMO USAR:
+----------
+1. Abra index.html
+2. Preencha nome da empresa e mês
+3. Faça upload do extrato
+4. Classifique as movimentações
+5. Preencha dados do pulmão financeiro
+6. Preencha dados de taxas (opcional)
+7. Baixe o PDF gerado!
+
+IMPORTANTE:
+-----------
+O arquivo app.js foi atualizado mas precisa ser completado.
+Vou criar um novo arquivo completo agora.

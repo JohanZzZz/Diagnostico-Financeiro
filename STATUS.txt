@@ -1,0 +1,19 @@
+STATUS DA ATUALIZAÇÃO
+======================
+
+✅ CONCLUÍDO:
+- Upload de extrato bancário
+- Classificação das movimentações
+- Interface do usuário
+- Estrutura básica do sistema
+
+⏳ EM ANDAMENTO:
+- Geração de relatório em PDF
+- Cálculos avançados do pulmão financeiro
+- Detecção de anomalias (A1, A2, A3)
+- Análise de taxas ocultas (T1, T2, T3)
+
+📝 PRÓXIMO PASSO:
+Completar o arquivo app.js com todas as funcionalidades de PDF e análises.
+
+O sistema atual funciona mas o relatório PDF precisa ser finalizado.

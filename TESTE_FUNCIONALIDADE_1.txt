@@ -1,0 +1,142 @@
+═══════════════════════════════════════════════════════════
+  ✅ FUNCIONALIDADE 1 IMPLEMENTADA: PULMÃO FINANCEIRO
+═══════════════════════════════════════════════════════════
+
+🎯 O QUE FOI FEITO:
+-------------------
+✅ Novos campos de INPUT implementados:
+   - Caixa Atual
+   - Contas a Pagar (30 dias)
+   - Impostos Provisionados
+   - Parcelas de Dívida
+   - COMR (Custo Operacional Mensal Real)
+
+✅ Cálculos automáticos implementados:
+   - CLD (Caixa Líquido Disponível)
+   - Pulmão em DIAS
+   - Pulmão em MESES
+   - Fórmula: Pulmão (dias) = (CLD / COMR) × 30
+
+✅ Classificação automática:
+   - < 30 dias = RISCO OPERACIONAL (vermelho)
+   - 30-60 dias = ZONA DE ALERTA (amarelo)
+   - > 60 dias = ESTABILIDADE MÍNIMA (verde)
+
+
+📝 COMO TESTAR:
+-------------------
+
+PASSO 1: Abrir o sistema
+   → Vá em: C:\Users\reset\Desktop\CLAUDE\diagnostico-financeiro\
+   → Duplo clique em: index.html
+
+PASSO 2: Preencher dados iniciais
+   → Nome da empresa: "Teste Empresa Ltda"
+   → Mês de referência: "Janeiro/2026"
+
+PASSO 3: Upload do extrato
+   → Clique em "Upload"
+   → Selecione: extrato_exemplo.csv
+   → Sistema vai para Passo 2
+
+PASSO 4: Classificar movimentações
+   → Classifique cada saída em uma categoria
+   → Sugestões para o exemplo:
+     - Aluguel → OPERAÇÃO
+     - Salários → OPERAÇÃO
+     - PIX para Sócio → PRÓ-LABORE
+     - DAS/ICMS/INSS → IMPOSTOS
+     - Parcela Empréstimo → DÍVIDAS
+   → Clique em "Próximo"
+
+PASSO 5: TESTAR OS NOVOS CAMPOS (FUNCIONALIDADE 1)
+   → Preencha os campos:
+     
+     Caixa Atual: 50000
+     Contas a Pagar (30d): 15000
+     Impostos Provisionados: 5000
+     Parcelas de Dívida: 3000
+     COMR: 25000
+
+   → O sistema deve CALCULAR AUTOMATICAMENTE:
+     
+     CLD = 50000 - 15000 - 5000 - 3000 = 27000
+     Pulmão (dias) = (27000 / 25000) × 30 = 32 dias
+     Pulmão (meses) = 32 / 30 = 1.07 meses
+     Classificação = ZONA DE ALERTA (amarelo)
+
+PASSO 6: Ver resultado
+   → Clique em "Próximo: Resumo"
+   → Verifique se mostra:
+     ✓ Pulmão em dias (grande e visível)
+     ✓ Pulmão em meses
+     ✓ CLD calculado
+     ✓ Classificação com cor correta
+
+
+✅ RESULTADOS ESPERADOS:
+------------------------
+
+1. INTERFACE
+   ✓ 5 campos de input aparecem
+   ✓ Cada campo tem label e placeholder
+   ✓ Descrições aparecem abaixo dos campos
+
+2. CÁLCULOS
+   ✓ CLD calculado corretamente
+   ✓ Pulmão em dias calculado (fórmula correta)
+   ✓ Pulmão em meses (dias / 30)
+   ✓ Classificação automática por faixas
+
+3. VISUAL
+   ✓ Resultado em destaque (número grande)
+   ✓ Cores corretas por classificação
+   ✓ Layout bonito e profissional
+
+
+🧪 TESTE COM VALORES DIFERENTES:
+---------------------------------
+
+TESTE 1 - Situação CRÍTICA:
+   Caixa: 10000
+   Contas: 5000
+   Impostos: 2000
+   Dívidas: 1000
+   COMR: 15000
+   → Resultado esperado: 13 dias = RISCO OPERACIONAL (vermelho)
+
+TESTE 2 - Situação ESTÁVEL:
+   Caixa: 100000
+   Contas: 20000
+   Impostos: 5000
+   Dívidas: 5000
+   COMR: 30000
+   → Resultado esperado: 70 dias = ESTABILIDADE MÍNIMA (verde)
+
+
+⚠️ PROBLEMAS POSSÍVEIS:
+-----------------------
+
+PROBLEMA: Campos não aparecem
+SOLUÇÃO: Verifique se está no Passo 3 (depois de classificar)
+
+PROBLEMA: Cálculo não funciona
+SOLUÇÃO: Preencha TODOS os 5 campos, especialmente o COMR
+
+PROBLEMA: Classificação errada
+SOLUÇÃO: Verifique a fórmula: (CLD/COMR)×30
+
+
+📊 PRÓXIMA FUNCIONALIDADE:
+--------------------------
+Quando confirmar que está tudo OK, vou implementar:
+
+FUNCIONALIDADE 2: Detecção de Anomalias Avançada
+   - A1: Caixa negativo com resultado positivo
+   - A2: Oscilação anormal de caixa
+   - A3: Caixa sustentado por exceção
+
+
+═══════════════════════════════════════════════════════════
+Me confirme se a Funcionalidade 1 está OK para seguir!
+═══════════════════════════════════════════════════════════
