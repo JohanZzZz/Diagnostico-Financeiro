@@ -1,4 +1,4 @@
-const { useState, useRef, useEffect } = React;
+const { useState, useEffect } = React;
 
 // ============================================
 // ÍCONES SVG
@@ -69,51 +69,46 @@ const PieChart = ({ data, darkMode }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   if (total === 0) return null;
   
-  let currentAngle = 0;
   const colors = ['#6366F1', '#F59E0B', '#10B981', '#EF4444'];
-  
-  const createSlice = (value, index) => {
-    const percentage = value / total;
-    const angle = percentage * 360;
-    const startAngle = currentAngle;
-    const endAngle = currentAngle + angle;
-    currentAngle = endAngle;
-    
-    const startRad = (startAngle - 90) * Math.PI / 180;
-    const endRad = (endAngle - 90) * Math.PI / 180;
-    
-    const x1 = 50 + 40 * Math.cos(startRad);
-    const y1 = 50 + 40 * Math.sin(startRad);
-    const x2 = 50 + 40 * Math.cos(endRad);
-    const y2 = 50 + 40 * Math.sin(endRad);
-    
-    const largeArc = angle > 180 ? 1 : 0;
-    
-    return (
-      <path
-        key={index}
-        d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-        fill={colors[index % colors.length]}
-        stroke={darkMode ? '#1F2937' : 'white'}
-        strokeWidth="2"
-      />
-    );
-  };
+  let currentAngle = 0;
   
   return (
     <div className="flex items-center gap-4">
       <svg viewBox="0 0 100 100" className="w-32 h-32">
-        {data.filter(d => d.value > 0).map((item, idx) => createSlice(item.value, idx))}
+        {data.filter(d => d.value > 0).map((item, idx) => {
+          const percentage = item.value / total;
+          const angle = percentage * 360;
+          const startAngle = currentAngle;
+          const endAngle = currentAngle + angle;
+          currentAngle = endAngle;
+          
+          const startRad = (startAngle - 90) * Math.PI / 180;
+          const endRad = (endAngle - 90) * Math.PI / 180;
+          
+          const x1 = 50 + 40 * Math.cos(startRad);
+          const y1 = 50 + 40 * Math.sin(startRad);
+          const x2 = 50 + 40 * Math.cos(endRad);
+          const y2 = 50 + 40 * Math.sin(endRad);
+          
+          const largeArc = angle > 180 ? 1 : 0;
+          
+          return (
+            <path
+              key={idx}
+              d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+              fill={colors[idx % colors.length]}
+              stroke={darkMode ? '#1F2937' : 'white'}
+              strokeWidth="2"
+            />
+          );
+        })}
       </svg>
       <div className="text-xs space-y-1">
         {data.map((item, idx) => (
           <div key={idx} className="flex items-center gap-2">
-            <div 
-              className="w-3 h-3 rounded-sm" 
-              style={{ backgroundColor: colors[idx % colors.length] }}
-            />
+            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: colors[idx % colors.length] }} />
             <span className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
-              {item.label}: {((item.value / total) * 100).toFixed(0)}%
+              {item.label}: {total > 0 ? ((item.value / total) * 100).toFixed(0) : 0}%
             </span>
           </div>
         ))}
@@ -126,7 +121,7 @@ const PieChart = ({ data, darkMode }) => {
 // COMPONENTE DE BARRA DE PROGRESSO
 // ============================================
 const ProgressBar = ({ value, max, color, label, darkMode }) => {
-  const percentage = Math.min((value / max) * 100, 100);
+  const percentage = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return (
     <div className="mb-3">
       <div className="flex justify-between text-xs mb-1">
@@ -180,23 +175,30 @@ const DiagnosticoFinanceiro = () => {
   const [parcelasDivida, setParcelasDivida] = useState(0);
   const [comr, setComr] = useState(0);
   
-  // Campos para análise avançada
+  // NOVOS CAMPOS: Taxas de Vendas (T1, T2)
   const [receitaBruta, setReceitaBruta] = useState(0);
   const [valorLiquidoRecebido, setValorLiquidoRecebido] = useState(0);
+  const [taxasCartao, setTaxasCartao] = useState(0);
+  
+  // NOVOS CAMPOS: Taxas Ocultas Bancárias (T3)
+  const [tarifasBancarias, setTarifasBancarias] = useState(0);
+  const [jurosBancarios, setJurosBancarios] = useState(0);
+  const [iofBancario, setIofBancario] = useState(0);
+  const [multasBancarias, setMultasBancarias] = useState(0);
+  
+  // Campo para comparação: Banco > Dono
+  const [proLabore, setProLabore] = useState(0);
   
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [mesReferencia, setMesReferencia] = useState('');
-  const [gerandoPDF, setGerandoPDF] = useState(false);
-  
-  const reportRef = useRef();
-  const categorias = ['OPERAÇÃO', 'PRÓ-LABORE', 'IMPOSTOS', 'DÍVIDAS'];
 
-  // Persistir tema no localStorage
+  const categoriasSaida = ['OPERAÇÃO', 'PRÓ-LABORE', 'IMPOSTOS', 'DÍVIDAS'];
+  const categoriasEntrada = ['OPERACIONAL', 'NÃO OPERACIONAL'];
+
+  // Persistir tema
   useEffect(() => {
     const savedTheme = localStorage.getItem('diagnostico-theme');
-    if (savedTheme) {
-      setDarkMode(savedTheme === 'dark');
-    }
+    if (savedTheme) setDarkMode(savedTheme === 'dark');
   }, []);
 
   useEffect(() => {
@@ -253,22 +255,23 @@ const DiagnosticoFinanceiro = () => {
   };
 
   const updateCategoria = (id, categoria) => {
-    setClassificadas(prev => 
-      prev.map(mov => mov.id === id ? { ...mov, categoria } : mov)
-    );
+    setClassificadas(prev => prev.map(mov => mov.id === id ? { ...mov, categoria } : mov));
   };
 
   const calcularResumo = () => {
-    const entradas = classificadas
-      .filter(m => m.tipo === 'Entrada')
+    // Entradas separadas por tipo
+    const entradasOperacionais = classificadas
+      .filter(m => m.tipo === 'Entrada' && m.categoria === 'OPERACIONAL')
       .reduce((acc, m) => acc + m.valor, 0);
+    const entradasNaoOperacionais = classificadas
+      .filter(m => m.tipo === 'Entrada' && m.categoria === 'NÃO OPERACIONAL')
+      .reduce((acc, m) => acc + m.valor, 0);
+    const entradas = entradasOperacionais + entradasNaoOperacionais;
 
-    const categorizado = {
-      'OPERAÇÃO': 0,
-      'PRÓ-LABORE': 0,
-      'IMPOSTOS': 0,
-      'DÍVIDAS': 0
-    };
+    // Percentual de entradas operacionais
+    const percentualOperacional = entradas > 0 ? (entradasOperacionais / entradas) * 100 : 0;
+
+    const categorizado = { 'OPERAÇÃO': 0, 'PRÓ-LABORE': 0, 'IMPOSTOS': 0, 'DÍVIDAS': 0 };
 
     classificadas.filter(m => m.tipo === 'Saída').forEach(m => {
       if (m.categoria && categorizado[m.categoria] !== undefined) {
@@ -279,7 +282,15 @@ const DiagnosticoFinanceiro = () => {
     const totalSaidas = Object.values(categorizado).reduce((a, b) => a + b, 0);
     const resultado = entradas - totalSaidas;
 
-    return { entradas, categorizado, totalSaidas, resultado };
+    return {
+      entradas,
+      entradasOperacionais,
+      entradasNaoOperacionais,
+      percentualOperacional,
+      categorizado,
+      totalSaidas,
+      resultado
+    };
   };
 
   const calcularPulmaoFinanceiro = () => {
@@ -287,9 +298,7 @@ const DiagnosticoFinanceiro = () => {
     const pulmãoDias = comr > 0 ? (cld / comr) * 30 : 0;
     const pulmãoMeses = pulmãoDias / 30;
     
-    let classificacao = '';
-    let cor = '';
-    let mensagem = '';
+    let classificacao = '', cor = '', mensagem = '';
     
     if (pulmãoDias < 30) {
       classificacao = 'RISCO OPERACIONAL';
@@ -305,30 +314,49 @@ const DiagnosticoFinanceiro = () => {
       mensagem = 'Pulmão acima de 60 dias';
     }
     
+    return { cld: cld.toFixed(2), dias: pulmãoDias.toFixed(0), meses: pulmãoMeses.toFixed(2), classificacao, cor, mensagem };
+  };
+
+  // NOVOS CÁLCULOS: T1, T2, T3
+  const calcularCustosFinanceiros = () => {
+    // T1 - Taxa real de vendas
+    const taxaRealVendas = receitaBruta > 0 ? ((taxasCartao / receitaBruta) * 100) : 0;
+    
+    // T2 - Custo da antecipação
+    const custoAntecipacao = receitaBruta - valorLiquidoRecebido - taxasCartao;
+    const percentualAntecipacao = receitaBruta > 0 ? ((custoAntecipacao / receitaBruta) * 100) : 0;
+    
+    // T3 - Custo financeiro oculto total
+    const custoFinanceiroOculto = tarifasBancarias + jurosBancarios + iofBancario + multasBancarias;
+    const percentualCustoOculto = receitaBruta > 0 ? ((custoFinanceiroOculto / receitaBruta) * 100) : 0;
+    
+    // Banco > Dono
+    const resumo = calcularResumo();
+    const bancoMaiorQueDono = custoFinanceiroOculto > proLabore;
+    const bancoMaiorQueLucro = custoFinanceiroOculto > resumo.resultado && resumo.resultado > 0;
+    
     return {
-      cld: cld.toFixed(2),
-      dias: pulmãoDias.toFixed(0),
-      meses: pulmãoMeses.toFixed(2),
-      classificacao,
-      cor,
-      mensagem
+      t1: { taxa: taxaRealVendas.toFixed(2), valor: taxasCartao },
+      t2: { custo: custoAntecipacao > 0 ? custoAntecipacao.toFixed(2) : '0.00', percentual: percentualAntecipacao.toFixed(2) },
+      t3: { total: custoFinanceiroOculto.toFixed(2), percentual: percentualCustoOculto.toFixed(2), tarifas: tarifasBancarias, juros: jurosBancarios, iof: iofBancario, multas: multasBancarias },
+      bancoMaiorQueDono,
+      bancoMaiorQueLucro
     };
   };
 
   const detectarAnomalias = () => {
     const resumo = calcularResumo();
+    const custos = calcularCustosFinanceiros();
     const anomalias = [];
 
     // A1 - Caixa negativo com resultado positivo
     const variacaoCaixa = resumo.entradas - resumo.totalSaidas;
     if (resumo.resultado > 0 && variacaoCaixa < 0) {
       anomalias.push({
-        codigo: 'A1',
-        titulo: 'Caixa negativo com resultado positivo',
-        descricao: 'Resultado operacional positivo mas variação de caixa negativa. Indica descasamento de prazo, crescimento sem capital de giro ou antecipação excessiva.',
-        criticidade: 'ALTA',
-        impacto: `Variação: R$ ${variacaoCaixa.toFixed(2)}`,
-        recomendacao: 'Revise os prazos de recebimento e pagamento. Considere renegociar prazos com fornecedores ou antecipar menos recebíveis.'
+        codigo: 'A1', titulo: 'Caixa negativo com resultado positivo',
+        descricao: 'Resultado operacional positivo mas variação de caixa negativa.',
+        criticidade: 'ALTA', impacto: `Variação: R$ ${variacaoCaixa.toFixed(2)}`,
+        recomendacao: 'Revise os prazos de recebimento e pagamento.'
       });
     }
 
@@ -339,152 +367,352 @@ const DiagnosticoFinanceiro = () => {
     
     if (percentualOscilacao > 30) {
       anomalias.push({
-        codigo: 'A2',
-        titulo: 'Oscilação anormal de caixa',
-        descricao: 'Caixa "sanfona" - entra muito, sai muito, nunca estabiliza. Desvio mensal maior que 30% da média.',
-        criticidade: 'MÉDIA',
-        impacto: `Oscilação: ${percentualOscilacao.toFixed(1)}%`,
-        recomendacao: 'Crie uma reserva de estabilização. Padronize datas de pagamento e busque previsibilidade nas entradas.'
+        codigo: 'A2', titulo: 'Oscilação anormal de caixa',
+        descricao: 'Desvio mensal maior que 30% da média.',
+        criticidade: 'MÉDIA', impacto: `Oscilação: ${percentualOscilacao.toFixed(1)}%`,
+        recomendacao: 'Crie uma reserva de estabilização.'
       });
     }
 
-    // A3 - Caixa sustentado por exceção
-    const entradasNaoRecorrentes = resumo.categorizado['DÍVIDAS'];
-    if (resumo.entradas > 0) {
-      const percentualNaoRecorrente = (entradasNaoRecorrentes / resumo.entradas) * 100;
-      
-      if (percentualNaoRecorrente > 20) {
+    // A3 - Caixa sustentado por exceção (entradas não operacionais)
+    if (resumo.entradas > 0 && resumo.entradasNaoOperacionais > 0) {
+      const percentualNaoOperacional = (resumo.entradasNaoOperacionais / resumo.entradas) * 100;
+      if (percentualNaoOperacional > 20) {
         anomalias.push({
-          codigo: 'A3',
-          titulo: 'Caixa sustentado por exceção',
-          descricao: 'Entradas não recorrentes (empréstimos, aportes) representam mais de 20% das entradas totais.',
-          criticidade: 'ALTA',
-          impacto: `${percentualNaoRecorrente.toFixed(1)}% das entradas`,
-          recomendacao: 'A empresa está dependente de capital externo. Foque em aumentar receita operacional e reduzir custos.'
+          codigo: 'A3', titulo: 'Caixa sustentado por exceção',
+          descricao: 'Entradas não operacionais (aportes, empréstimos, vendas de ativos) representam mais de 20% das entradas.',
+          criticidade: percentualNaoOperacional > 40 ? 'ALTA' : 'MÉDIA',
+          impacto: `${percentualNaoOperacional.toFixed(1)}% das entradas são não operacionais (R$ ${resumo.entradasNaoOperacionais.toFixed(2)})`,
+          recomendacao: 'Foque em aumentar receita operacional. A dependência de receitas não recorrentes é insustentável.'
         });
       }
     }
 
-    // B1 - Pró-labore maior que o lucro
-    if (resumo.categorizado['PRÓ-LABORE'] > resumo.resultado && resumo.resultado > 0) {
+    // T1 - Taxa real de vendas alta
+    if (parseFloat(custos.t1.taxa) > 5) {
       anomalias.push({
-        codigo: 'B1',
-        titulo: 'Pró-labore maior que o lucro',
+        codigo: 'T1', titulo: 'Taxa real de vendas elevada',
+        descricao: 'Taxa de cartão/gateway acima de 5% da receita.',
+        criticidade: parseFloat(custos.t1.taxa) > 8 ? 'ALTA' : 'MÉDIA',
+        impacto: `${custos.t1.taxa}% da receita`,
+        recomendacao: 'Renegocie taxas com operadoras ou considere outras formas de pagamento.'
+      });
+    }
+
+    // T2 - Antecipação mascarada
+    if (parseFloat(custos.t2.percentual) > 2) {
+      anomalias.push({
+        codigo: 'T2', titulo: 'Antecipação mascarada de margem',
+        descricao: 'O custo da antecipação está consumindo parte significativa da receita.',
+        criticidade: parseFloat(custos.t2.percentual) > 5 ? 'ALTA' : 'MÉDIA',
+        impacto: `R$ ${custos.t2.custo} (${custos.t2.percentual}% da receita)`,
+        recomendacao: 'Evite antecipar recebíveis. Negocie taxas melhores ou busque capital de giro mais barato.'
+      });
+    }
+
+    // T3 - Juros pulverizados
+    if (parseFloat(custos.t3.percentual) > 3) {
+      anomalias.push({
+        codigo: 'T3', titulo: 'Juros pulverizados',
+        descricao: 'Custos financeiros ocultos estão consumindo mais de 3% da receita.',
+        criticidade: parseFloat(custos.t3.percentual) > 6 ? 'ALTA' : 'MÉDIA',
+        impacto: `R$ ${custos.t3.total} (${custos.t3.percentual}% da receita)`,
+        recomendacao: 'Revise seu pacote bancário. Considere bancos digitais com tarifas menores.'
+      });
+    }
+
+    // Banco > Dono
+    if (custos.bancoMaiorQueDono && proLabore > 0) {
+      anomalias.push({
+        codigo: 'B3', titulo: 'Banco lucrando mais que o dono',
+        descricao: 'Despesas financeiras superam o pró-labore.',
+        criticidade: 'ALTA',
+        impacto: `Banco: R$ ${custos.t3.total} vs Pró-labore: R$ ${proLabore.toFixed(2)}`,
+        recomendacao: 'Urgente: renegocie dívidas e reduza custos bancários.'
+      });
+    }
+
+    // B1 - Pró-labore maior que lucro
+    if (proLabore > resumo.resultado && resumo.resultado > 0) {
+      anomalias.push({
+        codigo: 'B1', titulo: 'Pró-labore maior que o lucro',
         descricao: 'Retirada dos sócios excede o resultado operacional.',
         criticidade: 'ALTA',
-        impacto: `Diferença: R$ ${(resumo.categorizado['PRÓ-LABORE'] - resumo.resultado).toFixed(2)}`,
-        recomendacao: 'Reduza o pró-labore para um valor sustentável ou encontre formas de aumentar o faturamento.'
+        impacto: `Diferença: R$ ${(proLabore - resumo.resultado).toFixed(2)}`,
+        recomendacao: 'Reduza o pró-labore para um valor sustentável.'
       });
-    }
-
-    // B2 - Endividamento elevado
-    const dividas = classificadas.filter(m => m.categoria === 'DÍVIDAS' && m.tipo === 'Saída');
-    if (dividas.length > 0) {
-      const totalDividas = dividas.reduce((acc, m) => acc + Math.abs(m.valor), 0);
-      if (resumo.resultado > 0 && totalDividas > resumo.resultado * 0.3) {
-        anomalias.push({
-          codigo: 'B2',
-          titulo: 'Endividamento elevado',
-          descricao: 'Parcelas de dívidas representam mais de 30% do resultado.',
-          criticidade: 'MÉDIA',
-          impacto: `R$ ${totalDividas.toFixed(2)} (${((totalDividas/resumo.resultado)*100).toFixed(1)}%)`,
-          recomendacao: 'Avalie renegociação de dívidas para prazos maiores ou taxas menores. Evite novos empréstimos.'
-        });
-      }
     }
 
     return anomalias;
   };
 
-  // Gerar recomendações baseadas na análise
   const gerarRecomendacoes = () => {
     const pulmao = calcularPulmaoFinanceiro();
     const resumo = calcularResumo();
+    const custos = calcularCustosFinanceiros();
     const recomendacoes = [];
 
-    // Recomendações baseadas no pulmão
     if (parseFloat(pulmao.dias) < 30) {
       recomendacoes.push({
-        prioridade: 'URGENTE',
-        titulo: 'Aumentar reserva de emergência',
-        descricao: 'Seu pulmão está crítico. Priorize a construção de uma reserva de pelo menos 30 dias de operação.',
-        acao: 'Separe 10% de toda entrada para reserva até atingir a meta.'
+        prioridade: 'URGENTE', titulo: 'Aumentar reserva de emergência',
+        descricao: 'Seu pulmão está crítico.',
+        acao: 'Separe 10% de toda entrada para reserva até atingir 30 dias.'
       });
     }
 
-    // Recomendações baseadas nas categorias
     if (resumo.categorizado['OPERAÇÃO'] > resumo.entradas * 0.7) {
       recomendacoes.push({
-        prioridade: 'ALTA',
-        titulo: 'Custos operacionais muito altos',
+        prioridade: 'ALTA', titulo: 'Custos operacionais muito altos',
         descricao: 'A operação consome mais de 70% das entradas.',
-        acao: 'Revise contratos, renegocie com fornecedores e elimine desperdícios.'
+        acao: 'Revise contratos e elimine desperdícios.'
       });
     }
 
     if (resumo.resultado < 0) {
       recomendacoes.push({
-        prioridade: 'URGENTE',
-        titulo: 'Resultado negativo',
+        prioridade: 'URGENTE', titulo: 'Resultado negativo',
         descricao: 'A empresa está operando no vermelho.',
-        acao: 'Corte despesas não essenciais imediatamente e revise a precificação.'
+        acao: 'Corte despesas não essenciais imediatamente.'
       });
     }
 
-    if (resumo.categorizado['IMPOSTOS'] > resumo.entradas * 0.15) {
+    if (parseFloat(custos.t3.percentual) > 3) {
       recomendacoes.push({
-        prioridade: 'MÉDIA',
-        titulo: 'Carga tributária elevada',
-        descricao: 'Impostos representam mais de 15% do faturamento.',
-        acao: 'Consulte um contador para avaliar enquadramento tributário mais vantajoso.'
+        prioridade: 'ALTA', titulo: 'Reduzir custos bancários',
+        descricao: `Você está perdendo ${custos.t3.percentual}% da receita com o banco.`,
+        acao: 'Migre para um banco digital ou renegocie tarifas.'
       });
     }
 
     return recomendacoes;
   };
 
-  // Calcular indicadores de saúde
   const calcularIndicadoresSaude = () => {
     const pulmao = calcularPulmaoFinanceiro();
     const resumo = calcularResumo();
     const anomalias = detectarAnomalias();
+    const custos = calcularCustosFinanceiros();
 
     return {
       pulmao: parseFloat(pulmao.dias) >= 60 ? 'good' : parseFloat(pulmao.dias) >= 30 ? 'warning' : 'danger',
       resultado: resumo.resultado > 0 ? 'good' : resumo.resultado === 0 ? 'warning' : 'danger',
       anomalias: anomalias.length === 0 ? 'good' : anomalias.some(a => a.criticidade === 'ALTA') ? 'danger' : 'warning',
-      operacao: resumo.categorizado['OPERAÇÃO'] <= resumo.entradas * 0.6 ? 'good' : 
-                resumo.categorizado['OPERAÇÃO'] <= resumo.entradas * 0.8 ? 'warning' : 'danger'
+      custos: parseFloat(custos.t3.percentual) <= 3 ? 'good' : parseFloat(custos.t3.percentual) <= 6 ? 'warning' : 'danger'
     };
   };
 
-  const gerarPDF = async () => {
-    setGerandoPDF(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const element = reportRef.current;
-    element.style.position = 'static';
-    element.style.left = '0';
-    element.style.top = '0';
-    
-    const opt = {
-      margin: 10,
-      filename: `Diagnostico_${nomeEmpresa || 'Empresa'}_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, logging: false },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-    
-    try {
-      await html2pdf().set(opt).from(element).save();
-    } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      alert('Erro ao gerar PDF. Veja o console para mais detalhes.');
-    } finally {
-      element.style.position = 'absolute';
-      element.style.left = '-9999px';
-      setGerandoPDF(false);
-    }
+  // Função para abrir relatório em nova aba
+  const abrirRelatorioNovaAba = () => {
+    const resumo = calcularResumo();
+    const pulmao = calcularPulmaoFinanceiro();
+    const custos = calcularCustosFinanceiros();
+    const anomalias = detectarAnomalias();
+    const recomendacoes = gerarRecomendacoes();
+    const saude = calcularIndicadoresSaude();
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Relatório - ${nomeEmpresa || 'Empresa'}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #4F46E5; }
+    .header h1 { font-size: 26px; color: #1F2937; margin-bottom: 8px; }
+    .header h2 { font-size: 18px; color: #4F46E5; margin-bottom: 5px; }
+    .header p { color: #6B7280; }
+    .section { margin-bottom: 25px; }
+    .section h3 { font-size: 16px; font-weight: bold; color: #1F2937; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #E5E7EB; }
+    .indicadores { display: flex; gap: 12px; margin-bottom: 20px; }
+    .indicador { flex: 1; padding: 12px; border-radius: 8px; text-align: center; }
+    .indicador.good { background: #D1FAE5; }
+    .indicador.warning { background: #FEF3C7; }
+    .indicador.danger { background: #FEE2E2; }
+    .indicador .icon { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    .indicador.good .icon { background: #10B981; }
+    .indicador.warning .icon { background: #F59E0B; }
+    .indicador.danger .icon { background: #EF4444; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .card { background: #F9FAFB; padding: 15px; border-radius: 8px; }
+    .card-title { font-weight: bold; margin-bottom: 10px; color: #374151; }
+    .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .row span:last-child { font-weight: bold; }
+    .green { color: #10B981; }
+    .red { color: #EF4444; }
+    .yellow { color: #F59E0B; }
+    .resultado-box { background: #EEF2FF; padding: 15px; border-radius: 8px; border: 2px solid #818CF8; margin-top: 12px; }
+    .pulmao-box { background: #EEF2FF; padding: 20px; border-radius: 8px; text-align: center; }
+    .pulmao-dias { font-size: 42px; font-weight: bold; color: #312E81; }
+    .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 11px; margin-top: 10px; }
+    .badge.red { background: #FEE2E2; color: #991B1B; }
+    .badge.yellow { background: #FEF3C7; color: #92400E; }
+    .badge.green { background: #D1FAE5; color: #065F46; }
+    .anomalia { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; }
+    .anomalia.alta { background: #FEE2E2; border-color: #DC2626; }
+    .anomalia.media { background: #FEF3C7; border-color: #F59E0B; }
+    .anomalia-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .anomalia-title { font-weight: bold; font-size: 12px; }
+    .anomalia-badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
+    .anomalia.alta .anomalia-badge { background: #FCA5A5; color: #7F1D1D; }
+    .anomalia.media .anomalia-badge { background: #FCD34D; color: #78350F; }
+    .recomendacao { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; }
+    .recomendacao.urgente { background: #FEF2F2; border-color: #DC2626; }
+    .recomendacao.alta { background: #F0FDF4; border-color: #16A34A; }
+    .tip { font-size: 10px; background: #D1FAE5; color: #065F46; padding: 6px; border-radius: 4px; margin-top: 6px; }
+    .action { font-size: 10px; background: #DBEAFE; color: #1E40AF; padding: 6px; border-radius: 4px; margin-top: 6px; }
+    .footer { margin-top: 25px; padding-top: 12px; border-top: 1px solid #E5E7EB; text-align: center; font-size: 10px; color: #9CA3AF; }
+    .custos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+    .custo-card { background: white; padding: 10px; border-radius: 6px; text-align: center; }
+    .custo-card p:first-child { font-size: 10px; color: #6B7280; margin-bottom: 4px; }
+    .custo-card p:last-child { font-size: 16px; font-weight: bold; }
+    .progress-bar { height: 8px; background: #E5E7EB; border-radius: 4px; margin-top: 4px; margin-bottom: 8px; }
+    .progress-fill { height: 100%; border-radius: 4px; }
+    .progress-fill.op { background: #6366F1; }
+    .progress-fill.pl { background: #F59E0B; }
+    .progress-fill.im { background: #10B981; }
+    .progress-fill.di { background: #EF4444; }
+    .print-btn { position: fixed; top: 20px; right: 20px; background: #4F46E5; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    .print-btn:hover { background: #4338CA; }
+    @media print { .print-btn { display: none; } body { background: white; } .container { box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <div class="container">
+    <div class="header">
+      <h1>Diagnóstico Financeiro</h1>
+      <h2>${nomeEmpresa || 'Empresa'}</h2>
+      <p>${mesReferencia || 'Período'} | Gerado em ${new Date().toLocaleDateString('pt-BR')}</p>
+    </div>
+
+    <div class="indicadores">
+      <div class="indicador ${saude.pulmao}">
+        <div class="icon">${saude.pulmao === 'good' ? '✓' : saude.pulmao === 'warning' ? '!' : '✗'}</div>
+        <p><strong>Pulmão</strong></p>
+      </div>
+      <div class="indicador ${saude.resultado}">
+        <div class="icon">${saude.resultado === 'good' ? '✓' : saude.resultado === 'warning' ? '!' : '✗'}</div>
+        <p><strong>Resultado</strong></p>
+      </div>
+      <div class="indicador ${saude.anomalias}">
+        <div class="icon">${saude.anomalias === 'good' ? '✓' : saude.anomalias === 'warning' ? '!' : '✗'}</div>
+        <p><strong>Anomalias</strong></p>
+      </div>
+      <div class="indicador ${saude.custos}">
+        <div class="icon">${saude.custos === 'good' ? '✓' : saude.custos === 'warning' ? '!' : '✗'}</div>
+        <p><strong>Custos</strong></p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="section">
+        <h3>1. Resumo do Caixa</h3>
+        <div class="card">
+          <div class="row"><span>Entradas Operacionais:</span><span class="green">R$ ${resumo.entradasOperacionais?.toFixed(2) || resumo.entradas.toFixed(2)}</span></div>
+          <div class="row"><span>Entradas Não Operacionais:</span><span class="yellow">R$ ${resumo.entradasNaoOperacionais?.toFixed(2) || '0.00'}</span></div>
+          <div class="row"><span>Total Entradas:</span><span class="green">R$ ${resumo.entradas.toFixed(2)}</span></div>
+          <div class="row"><span>Total Saídas:</span><span class="red">R$ ${resumo.totalSaidas.toFixed(2)}</span></div>
+        </div>
+        <div class="card" style="margin-top: 10px;">
+          <div class="card-title">Distribuição de Saídas</div>
+          <div class="row"><span>OPERAÇÃO</span><span>R$ ${resumo.categorizado['OPERAÇÃO'].toFixed(2)}</span></div>
+          <div class="progress-bar"><div class="progress-fill op" style="width: ${resumo.totalSaidas > 0 ? (resumo.categorizado['OPERAÇÃO'] / resumo.totalSaidas * 100) : 0}%"></div></div>
+          <div class="row"><span>PRÓ-LABORE</span><span>R$ ${resumo.categorizado['PRÓ-LABORE'].toFixed(2)}</span></div>
+          <div class="progress-bar"><div class="progress-fill pl" style="width: ${resumo.totalSaidas > 0 ? (resumo.categorizado['PRÓ-LABORE'] / resumo.totalSaidas * 100) : 0}%"></div></div>
+          <div class="row"><span>IMPOSTOS</span><span>R$ ${resumo.categorizado['IMPOSTOS'].toFixed(2)}</span></div>
+          <div class="progress-bar"><div class="progress-fill im" style="width: ${resumo.totalSaidas > 0 ? (resumo.categorizado['IMPOSTOS'] / resumo.totalSaidas * 100) : 0}%"></div></div>
+          <div class="row"><span>DÍVIDAS</span><span>R$ ${resumo.categorizado['DÍVIDAS'].toFixed(2)}</span></div>
+          <div class="progress-bar"><div class="progress-fill di" style="width: ${resumo.totalSaidas > 0 ? (resumo.categorizado['DÍVIDAS'] / resumo.totalSaidas * 100) : 0}%"></div></div>
+        </div>
+        <div class="resultado-box">
+          <div class="row"><span><strong>Resultado:</strong></span><span class="${resumo.resultado >= 0 ? 'green' : 'red'}" style="font-size: 18px;">R$ ${resumo.resultado.toFixed(2)}</span></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>2. Pulmão Financeiro</h3>
+        <div class="pulmao-box">
+          <p class="pulmao-dias">${pulmao.dias}</p>
+          <p style="color: #6B7280;">dias (${pulmao.meses} meses)</p>
+          <span class="badge ${pulmao.cor}">${pulmao.classificacao}</span>
+          <p style="font-size: 11px; color: #6B7280; margin-top: 12px;">CLD: R$ ${pulmao.cld}</p>
+        </div>
+        ${receitaBruta > 0 ? `
+        <div style="margin-top: 15px;">
+          <div class="card-title">Custos Financeiros</div>
+          <div class="custos-grid">
+            <div class="custo-card">
+              <p>T1 - Taxa Vendas</p>
+              <p class="${parseFloat(custos.t1.taxa) > 5 ? 'red' : 'green'}">${custos.t1.taxa}%</p>
+            </div>
+            <div class="custo-card">
+              <p>T2 - Antecipação</p>
+              <p class="${parseFloat(custos.t2.percentual) > 2 ? 'red' : 'green'}">R$ ${custos.t2.custo}</p>
+            </div>
+            <div class="custo-card">
+              <p>T3 - Custos Ocultos</p>
+              <p class="${parseFloat(custos.t3.percentual) > 3 ? 'red' : 'green'}">R$ ${custos.t3.total}</p>
+            </div>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+
+    ${anomalias.length > 0 ? `
+    <div class="section">
+      <h3>3. Anomalias Detectadas (${anomalias.length})</h3>
+      ${anomalias.map(a => `
+        <div class="anomalia ${a.criticidade === 'ALTA' ? 'alta' : 'media'}">
+          <div class="anomalia-header">
+            <span class="anomalia-title">${a.codigo} - ${a.titulo}</span>
+            <span class="anomalia-badge">${a.criticidade}</span>
+          </div>
+          <p style="font-size: 11px; color: #4B5563;">${a.descricao}</p>
+          <p style="font-size: 10px; color: #6B7280;">Impacto: ${a.impacto}</p>
+          ${a.recomendacao ? `<div class="tip">💡 ${a.recomendacao}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    ` : `
+    <div class="section">
+      <h3>3. Anomalias Detectadas</h3>
+      <div style="background: #D1FAE5; padding: 15px; border-radius: 8px; text-align: center;">
+        <p style="color: #065F46; font-weight: 600;">✓ Nenhuma anomalia detectada</p>
+      </div>
+    </div>
+    `}
+
+    ${recomendacoes.length > 0 ? `
+    <div class="section">
+      <h3>4. Recomendações</h3>
+      ${recomendacoes.map(rec => `
+        <div class="recomendacao ${rec.prioridade === 'URGENTE' ? 'urgente' : 'alta'}">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span class="anomalia-badge" style="background: ${rec.prioridade === 'URGENTE' ? '#FCA5A5' : '#86EFAC'}; color: ${rec.prioridade === 'URGENTE' ? '#7F1D1D' : '#14532D'};">${rec.prioridade}</span>
+            <span style="font-weight: bold; font-size: 12px;">${rec.titulo}</span>
+          </div>
+          <p style="font-size: 11px; color: #4B5563;">${rec.descricao}</p>
+          <div class="action">🎯 ${rec.acao}</div>
+        </div>
+      `).join('')}
+    </div>
+    ` : ''}
+
+    <div class="footer">
+      <p>Documento confidencial | Gerado automaticamente pelo Sistema de Diagnóstico Financeiro</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    const novaAba = window.open('', '_blank');
+    novaAba.document.write(htmlContent);
+    novaAba.document.close();
   };
 
   // ============================================
@@ -495,66 +723,38 @@ const DiagnosticoFinanceiro = () => {
       <div className={`min-h-screen ${themeClasses.bg} p-8 transition-colors duration-300`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-4xl mx-auto">
-          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8 transition-colors duration-300`}>
+          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
             <div className="text-center mb-8">
-              <div className={darkMode ? 'text-indigo-400' : ''}>
-                <FileIcon />
-              </div>
-              <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>
-                Diagnóstico Financeiro
-              </h1>
-              <p className={themeClasses.textSecondary}>
-                Análise baseada em extrato bancário
-              </p>
+              <div className={darkMode ? 'text-indigo-400' : ''}><FileIcon /></div>
+              <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Diagnóstico Financeiro</h1>
+              <p className={themeClasses.textSecondary}>Análise completa baseada em extrato bancário</p>
             </div>
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className={`block text-sm font-medium ${themeClasses.text} mb-2`}>
-                  Nome da Empresa
-                </label>
-                <input
-                  type="text"
-                  value={nomeEmpresa}
-                  onChange={(e) => setNomeEmpresa(e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus} transition-colors duration-300`}
-                  placeholder="Ex: Minha Empresa Ltda"
-                />
+                <label className={`block text-sm font-medium ${themeClasses.text} mb-2`}>Nome da Empresa</label>
+                <input type="text" value={nomeEmpresa} onChange={(e) => setNomeEmpresa(e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
+                  placeholder="Ex: Minha Empresa Ltda" />
               </div>
-              
               <div>
-                <label className={`block text-sm font-medium ${themeClasses.text} mb-2`}>
-                  Mês de Referência
-                </label>
-                <input
-                  type="text"
-                  value={mesReferencia}
-                  onChange={(e) => setMesReferencia(e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus} transition-colors duration-300`}
-                  placeholder="Ex: Janeiro/2025"
-                />
+                <label className={`block text-sm font-medium ${themeClasses.text} mb-2`}>Mês de Referência</label>
+                <input type="text" value={mesReferencia} onChange={(e) => setMesReferencia(e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
+                  placeholder="Ex: Janeiro/2025" />
               </div>
             </div>
 
-            <div className={`border-2 border-dashed ${darkMode ? 'border-indigo-500 hover:border-indigo-400' : 'border-indigo-300 hover:border-indigo-500'} rounded-lg p-12 text-center transition-colors duration-300`}>
+            <div className={`border-2 border-dashed ${darkMode ? 'border-indigo-500' : 'border-indigo-300'} rounded-lg p-12 text-center hover:border-indigo-400 transition`}>
               <UploadIcon />
               <label className="cursor-pointer">
-                <span className={`text-lg ${themeClasses.text} font-medium`}>
-                  Clique para fazer upload do extrato bancário
-                </span>
-                <p className={`text-sm ${themeClasses.textSecondary} mt-2`}>
-                  Formatos aceitos: Excel (.xlsx, .xls) ou CSV
-                </p>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".xlsx,.xls,.csv"
-                  onChange={handleFileUpload}
-                />
+                <span className={`text-lg ${themeClasses.text} font-medium`}>Clique para fazer upload do extrato bancário</span>
+                <p className={`text-sm ${themeClasses.textSecondary} mt-2`}>Formatos: Excel (.xlsx, .xls) ou CSV</p>
+                <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
               </label>
             </div>
 
-            <div className={`mt-8 ${themeClasses.warning} border-l-4 p-4 rounded-r-lg transition-colors duration-300`}>
+            <div className={`mt-8 ${themeClasses.warning} border-l-4 p-4 rounded-r-lg`}>
               <div className="flex">
                 <AlertIcon />
                 <div className={`text-sm ${themeClasses.warningText}`}>
@@ -573,37 +773,27 @@ const DiagnosticoFinanceiro = () => {
   // STEP 2: Classificação
   // ============================================
   if (step === 2) {
-    const naoClassificadas = classificadas.filter(m => !m.categoria && m.tipo === 'Saída').length;
-    
+    const saidasNaoClassificadas = classificadas.filter(m => !m.categoria && m.tipo === 'Saída').length;
+    const entradasNaoClassificadas = classificadas.filter(m => !m.categoria && m.tipo === 'Entrada').length;
+    const totalNaoClassificadas = saidasNaoClassificadas + entradasNaoClassificadas;
+
     return (
-      <div className={`min-h-screen ${themeClasses.bg} p-8 transition-colors duration-300`}>
+      <div className={`min-h-screen ${themeClasses.bg} p-8`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-6xl mx-auto">
-          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8 transition-colors duration-300`}>
-            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>
-              Passo 2: Classificar Movimentações
-            </h2>
-            <p className={`${themeClasses.textSecondary} mb-6`}>
-              Classifique cada SAÍDA em uma das 4 categorias.
-            </p>
+          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 2: Classificar Movimentações</h2>
+            <p className={`${themeClasses.textSecondary} mb-6`}>Classifique todas as movimentações (entradas e saídas).</p>
 
-            <div className={`mb-6 flex justify-between items-center ${themeClasses.highlight} p-4 rounded-lg transition-colors duration-300`}>
+            <div className={`mb-6 flex justify-between items-center ${themeClasses.highlight} p-4 rounded-lg`}>
               <div className={`text-sm ${themeClasses.textSecondary}`}>
-                Total: <span className="font-bold">{classificadas.length}</span> | 
-                Não classificadas: <span className={`font-bold ${naoClassificadas > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                  {naoClassificadas}
-                </span>
+                Total: <span className="font-bold">{classificadas.length}</span> |
+                Entradas pendentes: <span className={`font-bold ${entradasNaoClassificadas > 0 ? 'text-yellow-500' : 'text-green-500'}`}>{entradasNaoClassificadas}</span> |
+                Saídas pendentes: <span className={`font-bold ${saidasNaoClassificadas > 0 ? 'text-red-500' : 'text-green-500'}`}>{saidasNaoClassificadas}</span>
               </div>
-              <button
-                onClick={() => setStep(3)}
-                disabled={naoClassificadas > 0}
-                className={`px-6 py-2 rounded-lg transition ${
-                  naoClassificadas > 0 
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                Próximo: Pulmão Financeiro →
+              <button onClick={() => setStep(3)} disabled={totalNaoClassificadas > 0}
+                className={`px-6 py-2 rounded-lg transition ${totalNaoClassificadas > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                Próximo →
               </button>
             </div>
 
@@ -623,36 +813,27 @@ const DiagnosticoFinanceiro = () => {
                     <tr key={mov.id} className={themeClasses.tableRow}>
                       <td className={`px-4 py-3 text-sm ${themeClasses.text}`}>{mov.data}</td>
                       <td className={`px-4 py-3 text-sm ${themeClasses.text}`}>{mov.descricao}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${
-                        mov.tipo === 'Entrada' ? 'text-green-500' : 'text-red-500'
-                      }`}>
+                      <td className={`px-4 py-3 text-sm text-right font-medium ${mov.tipo === 'Entrada' ? 'text-green-500' : 'text-red-500'}`}>
                         R$ {Math.abs(mov.valor).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          mov.tipo === 'Entrada' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs rounded ${mov.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {mov.tipo}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         {mov.tipo === 'Saída' ? (
-                          <select
-                            value={mov.categoria}
-                            onChange={(e) => updateCategoria(mov.id, e.target.value)}
-                            className={`w-full px-3 py-2 border rounded text-sm ${themeClasses.input} ${
-                              !mov.categoria ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : ''
-                            }`}
-                          >
+                          <select value={mov.categoria} onChange={(e) => updateCategoria(mov.id, e.target.value)}
+                            className={`w-full px-3 py-2 border rounded text-sm ${themeClasses.input} ${!mov.categoria ? 'border-red-400' : ''}`}>
                             <option value="">Selecione...</option>
-                            {categorias.map(cat => (
-                              <option key={cat} value={cat}>{cat}</option>
-                            ))}
+                            {categoriasSaida.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                           </select>
                         ) : (
-                          <span className={`text-sm ${themeClasses.textSecondary}`}>-</span>
+                          <select value={mov.categoria} onChange={(e) => updateCategoria(mov.id, e.target.value)}
+                            className={`w-full px-3 py-2 border rounded text-sm ${themeClasses.input} ${!mov.categoria ? 'border-yellow-400' : 'border-green-400'}`}>
+                            <option value="">Selecione...</option>
+                            {categoriasEntrada.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                          </select>
                         )}
                       </td>
                     </tr>
@@ -661,14 +842,23 @@ const DiagnosticoFinanceiro = () => {
               </table>
             </div>
 
-            <div className={`mt-6 ${themeClasses.info} border-l-4 p-4 rounded-r-lg transition-colors duration-300`}>
-              <p className={`text-sm ${themeClasses.infoText} font-semibold mb-2`}>Como classificar:</p>
-              <ul className={`text-xs ${themeClasses.infoText} space-y-1`}>
-                <li><strong>OPERAÇÃO:</strong> Despesas para a empresa funcionar</li>
-                <li><strong>PRÓ-LABORE:</strong> Dinheiro que foi para o dono ou família</li>
-                <li><strong>IMPOSTOS:</strong> Pagamentos ao governo</li>
-                <li><strong>DÍVIDAS:</strong> Empréstimos e financiamentos</li>
-              </ul>
+            <div className={`mt-6 grid grid-cols-2 gap-4`}>
+              <div className={`${themeClasses.info} border-l-4 p-4 rounded-r-lg`}>
+                <p className={`text-sm ${themeClasses.infoText} font-semibold mb-2`}>📥 Classificação de ENTRADAS:</p>
+                <ul className={`text-xs ${themeClasses.infoText} space-y-1`}>
+                  <li><strong>OPERACIONAL:</strong> Receitas recorrentes do negócio (vendas, serviços)</li>
+                  <li><strong>NÃO OPERACIONAL:</strong> Receitas não recorrentes (venda de ativo, empréstimo recebido, aporte)</li>
+                </ul>
+              </div>
+              <div className={`${themeClasses.warning} border-l-4 p-4 rounded-r-lg`}>
+                <p className={`text-sm ${themeClasses.warningText} font-semibold mb-2`}>📤 Classificação de SAÍDAS:</p>
+                <ul className={`text-xs ${themeClasses.warningText} space-y-1`}>
+                  <li><strong>OPERAÇÃO:</strong> Despesas para a empresa funcionar</li>
+                  <li><strong>PRÓ-LABORE:</strong> Dinheiro que foi para o dono ou família</li>
+                  <li><strong>IMPOSTOS:</strong> Pagamentos ao governo</li>
+                  <li><strong>DÍVIDAS:</strong> Empréstimos e financiamentos</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -683,138 +873,66 @@ const DiagnosticoFinanceiro = () => {
     const pulmao = calcularPulmaoFinanceiro();
     
     return (
-      <div className={`min-h-screen ${themeClasses.bg} p-8 transition-colors duration-300`}>
+      <div className={`min-h-screen ${themeClasses.bg} p-8`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-4xl mx-auto">
-          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8 transition-colors duration-300`}>
-            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>
-              Passo 3: Cálculo do Pulmão Financeiro
-            </h2>
-            <p className={`${themeClasses.textSecondary} mb-6`}>
-              Preencha os campos abaixo para calcular o pulmão financeiro real da empresa.
-            </p>
+          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 3: Pulmão Financeiro</h2>
+            <p className={`${themeClasses.textSecondary} mb-6`}>Preencha os campos para calcular o pulmão financeiro.</p>
 
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div className={`${themeClasses.highlight} p-4 rounded-lg transition-colors duration-300`}>
-                <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>
-                  Caixa Atual (R$)
-                </label>
-                <input
-                  type="number"
-                  value={caixaAtual || ''}
-                  onChange={(e) => setCaixaAtual(parseFloat(e.target.value) || 0)}
-                  className={`w-full px-4 py-2 border-2 rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
-                  placeholder="0.00"
-                />
-                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Saldo disponível em banco</p>
-              </div>
-
-              <div className={`${themeClasses.highlight} p-4 rounded-lg transition-colors duration-300`}>
-                <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>
-                  Contas a Pagar (30 dias) (R$)
-                </label>
-                <input
-                  type="number"
-                  value={contasPagar30d || ''}
-                  onChange={(e) => setContasPagar30d(parseFloat(e.target.value) || 0)}
-                  className={`w-full px-4 py-2 border-2 rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
-                  placeholder="0.00"
-                />
-                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Contas vencendo nos próximos 30 dias</p>
-              </div>
-
-              <div className={`${themeClasses.highlight} p-4 rounded-lg transition-colors duration-300`}>
-                <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>
-                  Impostos Provisionados (R$)
-                </label>
-                <input
-                  type="number"
-                  value={impostosProvisionados || ''}
-                  onChange={(e) => setImpostosProvisionados(parseFloat(e.target.value) || 0)}
-                  className={`w-full px-4 py-2 border-2 rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
-                  placeholder="0.00"
-                />
-                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Impostos a pagar no mês</p>
-              </div>
-
-              <div className={`${themeClasses.highlight} p-4 rounded-lg transition-colors duration-300`}>
-                <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>
-                  Parcelas de Dívida (R$)
-                </label>
-                <input
-                  type="number"
-                  value={parcelasDivida || ''}
-                  onChange={(e) => setParcelasDivida(parseFloat(e.target.value) || 0)}
-                  className={`w-full px-4 py-2 border-2 rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
-                  placeholder="0.00"
-                />
-                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Parcelas de empréstimos/financiamentos</p>
-              </div>
-
-              <div className={`${darkMode ? 'bg-indigo-900/30' : 'bg-indigo-50'} p-4 rounded-lg col-span-2 transition-colors duration-300`}>
-                <label className={`block text-sm font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-2`}>
-                  COMR - Custo Operacional Mensal Real (R$)
-                </label>
-                <input
-                  type="number"
-                  value={comr || ''}
-                  onChange={(e) => setComr(parseFloat(e.target.value) || 0)}
-                  className={`w-full px-4 py-2 border-2 ${darkMode ? 'border-indigo-500 bg-gray-700 text-white' : 'border-indigo-300 bg-white'} rounded-lg`}
-                  placeholder="0.00"
-                />
-                <p className={`text-xs ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mt-1`}>Despesas fixas mensais da operação</p>
-              </div>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              {[
+                { label: 'Caixa Atual (R$)', value: caixaAtual, setter: setCaixaAtual, hint: 'Saldo disponível em banco' },
+                { label: 'Contas a Pagar 30d (R$)', value: contasPagar30d, setter: setContasPagar30d, hint: 'Contas vencendo em 30 dias' },
+                { label: 'Impostos Provisionados (R$)', value: impostosProvisionados, setter: setImpostosProvisionados, hint: 'Impostos a pagar' },
+                { label: 'Parcelas de Dívida (R$)', value: parcelasDivida, setter: setParcelasDivida, hint: 'Parcelas de empréstimos' },
+              ].map((field, idx) => (
+                <div key={idx} className={`${themeClasses.highlight} p-4 rounded-lg`}>
+                  <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>{field.label}</label>
+                  <input type="number" value={field.value || ''} onChange={(e) => field.setter(parseFloat(e.target.value) || 0)}
+                    className={`w-full px-4 py-2 border-2 rounded-lg ${themeClasses.input}`} placeholder="0.00" />
+                  <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>{field.hint}</p>
+                </div>
+              ))}
             </div>
 
-            {/* RESULTADO DO CÁLCULO */}
+            <div className={`${darkMode ? 'bg-indigo-900/30' : 'bg-indigo-50'} p-4 rounded-lg mb-6`}>
+              <label className={`block text-sm font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-2`}>
+                COMR - Custo Operacional Mensal Real (R$)
+              </label>
+              <input type="number" value={comr || ''} onChange={(e) => setComr(parseFloat(e.target.value) || 0)}
+                className={`w-full px-4 py-2 border-2 rounded-lg ${darkMode ? 'border-indigo-500 bg-gray-700 text-white' : 'border-indigo-300'}`}
+                placeholder="0.00" />
+              <p className={`text-xs ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mt-1`}>Despesas fixas mensais</p>
+            </div>
+
             {comr > 0 && (
-              <div className={`${darkMode ? 'bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border-indigo-500' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'} p-8 rounded-lg mb-8 border-2 transition-colors duration-300`}>
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-6 text-center`}>Resultado do Pulmão Financeiro</h3>
-                
-                <div className="text-center mb-6">
-                  <p className={`text-sm ${themeClasses.textSecondary} mb-2`}>Seu pulmão hoje:</p>
-                  <p className={`text-6xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'} mb-2`}>{pulmao.dias}</p>
-                  <p className={`text-xl ${themeClasses.text} mb-1`}>dias</p>
-                  <p className={`text-lg ${themeClasses.textSecondary}`}>({pulmao.meses} meses)</p>
+              <div className={`${darkMode ? 'bg-gradient-to-r from-indigo-900/50 to-purple-900/50' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} p-6 rounded-lg mb-6 border-2 ${darkMode ? 'border-indigo-500' : 'border-indigo-200'}`}>
+                <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-4 text-center`}>Resultado</h3>
+                <div className="text-center mb-4">
+                  <p className={`text-5xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>{pulmao.dias}</p>
+                  <p className={`${themeClasses.textSecondary}`}>dias ({pulmao.meses} meses)</p>
                 </div>
-
-                <div className="text-center mb-6">
-                  <p className={`inline-block px-8 py-3 rounded-full text-lg font-bold ${
+                <div className="text-center mb-4">
+                  <span className={`inline-block px-6 py-2 rounded-full font-bold ${
                     pulmao.cor === 'red' ? 'bg-red-100 text-red-800' :
-                    pulmao.cor === 'yellow' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {pulmao.classificacao}
-                  </p>
-                  <p className={`text-sm ${themeClasses.textSecondary} mt-2`}>{pulmao.mensagem}</p>
+                    pulmao.cor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                  }`}>{pulmao.classificacao}</span>
                 </div>
-
-                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 rounded-lg transition-colors duration-300`}>
-                  <div className="flex justify-between items-center">
-                    <span className={`text-sm ${themeClasses.textSecondary}`}>Caixa Líquido Disponível (CLD):</span>
-                    <span className={`text-2xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>R$ {pulmao.cld}</span>
-                  </div>
+                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg text-center`}>
+                  <span className={themeClasses.textSecondary}>CLD: </span>
+                  <span className={`font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>R$ {pulmao.cld}</span>
                 </div>
               </div>
             )}
 
             <div className="flex gap-4">
-              <button
-                onClick={() => setStep(2)}
-                className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg transition-colors duration-300`}
-              >
+              <button onClick={() => setStep(2)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg`}>
                 ← Voltar
               </button>
-              <button
-                onClick={() => setStep(4)}
-                disabled={comr <= 0}
-                className={`flex-1 px-6 py-3 rounded-lg transition-colors duration-300 ${
-                  comr <= 0
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
-              >
-                Próximo: Resumo →
+              <button onClick={() => setStep(4)} disabled={comr <= 0}
+                className={`flex-1 px-6 py-3 rounded-lg ${comr <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                Próximo: Custos Financeiros →
               </button>
             </div>
           </div>
@@ -824,11 +942,111 @@ const DiagnosticoFinanceiro = () => {
   }
 
   // ============================================
-  // STEP 4: Resumo + PDF
+  // STEP 4: Custos Financeiros (T1, T2, T3)
   // ============================================
   if (step === 4) {
+    const custos = calcularCustosFinanceiros();
+    
+    return (
+      <div className={`min-h-screen ${themeClasses.bg} p-8`}>
+        <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
+        <div className="max-w-4xl mx-auto">
+          <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 4: Custos Financeiros</h2>
+            <p className={`${themeClasses.textSecondary} mb-6`}>Analise taxas de vendas e custos bancários ocultos.</p>
+
+            {/* Taxas de Vendas */}
+            <div className={`${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'} p-4 rounded-lg mb-6`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-blue-300' : 'text-blue-800'} mb-4`}>💳 Taxas de Vendas (Cartão/Gateway)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm ${themeClasses.text} mb-1`}>Receita Bruta (R$)</label>
+                  <input type="number" value={receitaBruta || ''} onChange={(e) => setReceitaBruta(parseFloat(e.target.value) || 0)}
+                    className={`w-full px-3 py-2 border rounded ${themeClasses.input}`} placeholder="0.00" />
+                </div>
+                <div>
+                  <label className={`block text-sm ${themeClasses.text} mb-1`}>Valor Líquido Recebido (R$)</label>
+                  <input type="number" value={valorLiquidoRecebido || ''} onChange={(e) => setValorLiquidoRecebido(parseFloat(e.target.value) || 0)}
+                    className={`w-full px-3 py-2 border rounded ${themeClasses.input}`} placeholder="0.00" />
+                </div>
+                <div className="col-span-2">
+                  <label className={`block text-sm ${themeClasses.text} mb-1`}>Total de Taxas de Cartão/Gateway (R$)</label>
+                  <input type="number" value={taxasCartao || ''} onChange={(e) => setTaxasCartao(parseFloat(e.target.value) || 0)}
+                    className={`w-full px-3 py-2 border rounded ${themeClasses.input}`} placeholder="0.00" />
+                </div>
+              </div>
+              
+              {receitaBruta > 0 && (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>T1 - Taxa Real de Vendas</p>
+                    <p className={`text-xl font-bold ${parseFloat(custos.t1.taxa) > 5 ? 'text-red-500' : 'text-green-500'}`}>{custos.t1.taxa}%</p>
+                  </div>
+                  <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>T2 - Custo Antecipação</p>
+                    <p className={`text-xl font-bold ${parseFloat(custos.t2.percentual) > 2 ? 'text-red-500' : 'text-green-500'}`}>R$ {custos.t2.custo}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Taxas Ocultas Bancárias */}
+            <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} p-4 rounded-lg mb-6`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-red-300' : 'text-red-800'} mb-4`}>🏦 Taxas Ocultas Bancárias</h3>
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Tarifas', value: tarifasBancarias, setter: setTarifasBancarias },
+                  { label: 'Juros', value: jurosBancarios, setter: setJurosBancarios },
+                  { label: 'IOF', value: iofBancario, setter: setIofBancario },
+                  { label: 'Multas', value: multasBancarias, setter: setMultasBancarias },
+                ].map((field, idx) => (
+                  <div key={idx}>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>{field.label}</label>
+                    <input type="number" value={field.value || ''} onChange={(e) => field.setter(parseFloat(e.target.value) || 0)}
+                      className={`w-full px-2 py-2 border rounded text-sm ${themeClasses.input}`} placeholder="0" />
+                  </div>
+                ))}
+              </div>
+              
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg mt-4`}>
+                <div className="flex justify-between items-center">
+                  <span className={`text-sm ${themeClasses.text}`}>T3 - Custo Financeiro Oculto Total:</span>
+                  <span className={`text-xl font-bold ${parseFloat(custos.t3.percentual) > 3 ? 'text-red-500' : 'text-green-500'}`}>
+                    R$ {custos.t3.total} ({custos.t3.percentual}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pró-labore para comparação */}
+            <div className={`${themeClasses.highlight} p-4 rounded-lg mb-6`}>
+              <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>Pró-labore Mensal (R$)</label>
+              <input type="number" value={proLabore || ''} onChange={(e) => setProLabore(parseFloat(e.target.value) || 0)}
+                className={`w-full px-4 py-2 border rounded ${themeClasses.input}`} placeholder="0.00" />
+              <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Para comparar: banco está lucrando mais que você?</p>
+            </div>
+
+            <div className="flex gap-4">
+              <button onClick={() => setStep(3)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'} px-6 py-3 rounded-lg hover:opacity-80`}>
+                ← Voltar
+              </button>
+              <button onClick={() => setStep(5)} className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+                Ver Resumo Final →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================
+  // STEP 5: Resumo Final + PDF
+  // ============================================
+  if (step === 5) {
     const resumo = calcularResumo();
     const pulmao = calcularPulmaoFinanceiro();
+    const custos = calcularCustosFinanceiros();
     const anomalias = detectarAnomalias();
     const recomendacoes = gerarRecomendacoes();
     const saude = calcularIndicadoresSaude();
@@ -841,501 +1059,165 @@ const DiagnosticoFinanceiro = () => {
     ];
 
     return (
-      <>
-        {/* CONTEÚDO PARA PDF (OCULTO) */}
-        <div ref={reportRef} style={{ position: 'absolute', left: '-9999px', width: '190mm', backgroundColor: 'white' }}>
-          <div style={{ padding: '15px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box' }}>
-            {/* CAPA */}
-            <div style={{ textAlign: 'center', marginBottom: '30px', paddingBottom: '20px', borderBottom: '3px solid #4F46E5' }}>
-              <h1 style={{ fontSize: '28px', fontWeight: 'bold', color: '#1F2937', marginBottom: '15px' }}>
-                Relatório de Diagnóstico Financeiro
-              </h1>
-              <h2 style={{ fontSize: '22px', fontWeight: '600', color: '#4F46E5', marginBottom: '8px' }}>
-                {nomeEmpresa || 'Empresa'}
-              </h2>
-              <p style={{ fontSize: '16px', color: '#6B7280' }}>
-                {mesReferencia || 'Período de Análise'}
-              </p>
-              <p style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '20px' }}>
-                Documento confidencial e de uso exclusivo do cliente
-              </p>
-              <p style={{ fontSize: '10px', color: '#9CA3AF', marginTop: '5px' }}>
-                Gerado em {new Date().toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-
-            {/* INDICADORES DE SAÚDE */}
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1F2937', marginBottom: '12px', borderBottom: '2px solid #D1D5DB', paddingBottom: '6px' }}>
-                Painel de Saúde Financeira
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px' }}>
-                {[
-                  { label: 'Pulmão', status: saude.pulmao },
-                  { label: 'Resultado', status: saude.resultado },
-                  { label: 'Anomalias', status: saude.anomalias },
-                  { label: 'Operação', status: saude.operacao }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ 
-                    padding: '12px', 
-                    borderRadius: '8px', 
-                    textAlign: 'center',
-                    backgroundColor: item.status === 'good' ? '#D1FAE5' : item.status === 'warning' ? '#FEF3C7' : '#FEE2E2'
-                  }}>
-                    <div style={{ 
-                      width: '24px', 
-                      height: '24px', 
-                      borderRadius: '50%', 
-                      margin: '0 auto 8px',
-                      backgroundColor: item.status === 'good' ? '#10B981' : item.status === 'warning' ? '#F59E0B' : '#EF4444',
-                      color: 'white',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '14px',
-                      fontWeight: 'bold'
-                    }}>
-                      {item.status === 'good' ? '✓' : item.status === 'warning' ? '!' : '✗'}
-                    </div>
-                    <p style={{ fontSize: '11px', fontWeight: '600', color: '#374151' }}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* RESUMO DO CAIXA COM GRÁFICO */}
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1F2937', marginBottom: '12px', borderBottom: '2px solid #D1D5DB', paddingBottom: '6px' }}>
-                1. Resumo do Caixa
-              </h3>
-              
-              <div style={{ display: 'flex', gap: '20px' }}>
-                {/* Valores */}
-                <div style={{ flex: '1' }}>
-                  <div style={{ backgroundColor: '#F9FAFB', padding: '12px', borderRadius: '6px', marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '12px', color: '#6B7280' }}>Entradas Totais:</span>
-                      <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#10B981' }}>R$ {resumo.entradas.toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '12px', color: '#6B7280' }}>Saídas Totais:</span>
-                      <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#EF4444' }}>R$ {resumo.totalSaidas.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  {['OPERAÇÃO', 'PRÓ-LABORE', 'IMPOSTOS', 'DÍVIDAS'].map((cat, idx) => (
-                    <div key={cat} style={{ marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px' }}>
-                        <span>{cat}</span>
-                        <span>R$ {resumo.categorizado[cat].toFixed(2)} ({resumo.totalSaidas > 0 ? ((resumo.categorizado[cat] / resumo.totalSaidas) * 100).toFixed(0) : 0}%)</span>
-                      </div>
-                      <div style={{ height: '8px', backgroundColor: '#E5E7EB', borderRadius: '4px', overflow: 'hidden' }}>
-                        <div style={{ 
-                          height: '100%', 
-                          width: `${resumo.totalSaidas > 0 ? (resumo.categorizado[cat] / resumo.totalSaidas) * 100 : 0}%`,
-                          backgroundColor: ['#6366F1', '#F59E0B', '#10B981', '#EF4444'][idx],
-                          borderRadius: '4px'
-                        }} />
-                      </div>
-                    </div>
-                  ))}
-
-                  <div style={{ padding: '12px', backgroundColor: '#EEF2FF', border: '2px solid #818CF8', borderRadius: '4px', marginTop: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: '13px' }}>Resultado Real:</span>
-                      <span style={{ fontWeight: 'bold', fontSize: '18px', color: resumo.resultado >= 0 ? '#10B981' : '#EF4444' }}>
-                        R$ {resumo.resultado.toFixed(2)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Gráfico de Pizza (SVG simples) */}
-                <div style={{ width: '180px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg viewBox="0 0 100 100" style={{ width: '120px', height: '120px' }}>
-                    {(() => {
-                      const total = resumo.totalSaidas;
-                      if (total === 0) return <circle cx="50" cy="50" r="40" fill="#E5E7EB" />;
-                      
-                      const colors = ['#6366F1', '#F59E0B', '#10B981', '#EF4444'];
-                      const values = [resumo.categorizado['OPERAÇÃO'], resumo.categorizado['PRÓ-LABORE'], resumo.categorizado['IMPOSTOS'], resumo.categorizado['DÍVIDAS']];
-                      let currentAngle = -90;
-                      
-                      return values.map((value, idx) => {
-                        if (value === 0) return null;
-                        const percentage = value / total;
-                        const angle = percentage * 360;
-                        const startAngle = currentAngle;
-                        const endAngle = currentAngle + angle;
-                        currentAngle = endAngle;
-                        
-                        const startRad = startAngle * Math.PI / 180;
-                        const endRad = endAngle * Math.PI / 180;
-                        
-                        const x1 = 50 + 40 * Math.cos(startRad);
-                        const y1 = 50 + 40 * Math.sin(startRad);
-                        const x2 = 50 + 40 * Math.cos(endRad);
-                        const y2 = 50 + 40 * Math.sin(endRad);
-                        
-                        const largeArc = angle > 180 ? 1 : 0;
-                        
-                        return (
-                          <path
-                            key={idx}
-                            d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
-                            fill={colors[idx]}
-                            stroke="white"
-                            strokeWidth="1"
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-                  <div style={{ marginTop: '10px', fontSize: '9px' }}>
-                    {[
-                      { label: 'Operação', color: '#6366F1' },
-                      { label: 'Pró-labore', color: '#F59E0B' },
-                      { label: 'Impostos', color: '#10B981' },
-                      { label: 'Dívidas', color: '#EF4444' }
-                    ].map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-                        <div style={{ width: '8px', height: '8px', backgroundColor: item.color, borderRadius: '2px' }} />
-                        <span>{item.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* PULMÃO FINANCEIRO */}
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1F2937', marginBottom: '12px', borderBottom: '2px solid #D1D5DB', paddingBottom: '6px' }}>
-                2. Pulmão Financeiro
-              </h3>
-              <div style={{ background: 'linear-gradient(to right, #EEF2FF, #F5F3FF)', padding: '25px', borderRadius: '8px', marginBottom: '15px', textAlign: 'center' }}>
-                <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '8px' }}>Seu pulmão hoje:</p>
-                <p style={{ fontSize: '48px', fontWeight: 'bold', color: '#312E81', margin: '8px 0' }}>{pulmao.dias}</p>
-                <p style={{ fontSize: '16px', color: '#4B5563', marginBottom: '4px' }}>dias</p>
-                <p style={{ fontSize: '14px', color: '#6B7280', marginBottom: '15px' }}>({pulmao.meses} meses)</p>
-                <div style={{ display: 'inline-block', padding: '10px 30px', borderRadius: '9999px', fontWeight: 'bold', fontSize: '14px',
-                  backgroundColor: pulmao.cor === 'red' ? '#FEE2E2' : pulmao.cor === 'yellow' ? '#FEF3C7' : '#D1FAE5',
-                  color: pulmao.cor === 'red' ? '#991B1B' : pulmao.cor === 'yellow' ? '#92400E' : '#065F46'
-                }}>
-                  {pulmao.classificacao}
-                </div>
-                <p style={{ fontSize: '10px', color: '#6B7280', marginTop: '10px' }}>{pulmao.mensagem}</p>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
-                <div style={{ backgroundColor: '#F9FAFB', padding: '10px', borderRadius: '4px' }}>
-                  <p style={{ fontSize: '9px', color: '#6B7280', marginBottom: '3px' }}>Caixa Atual</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600' }}>R$ {caixaAtual.toFixed(2)}</p>
-                </div>
-                <div style={{ backgroundColor: '#F9FAFB', padding: '10px', borderRadius: '4px' }}>
-                  <p style={{ fontSize: '9px', color: '#6B7280', marginBottom: '3px' }}>Contas a Pagar (30d)</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#EF4444' }}>R$ {contasPagar30d.toFixed(2)}</p>
-                </div>
-                <div style={{ backgroundColor: '#F9FAFB', padding: '10px', borderRadius: '4px' }}>
-                  <p style={{ fontSize: '9px', color: '#6B7280', marginBottom: '3px' }}>Impostos Provisionados</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#EF4444' }}>R$ {impostosProvisionados.toFixed(2)}</p>
-                </div>
-                <div style={{ backgroundColor: '#F9FAFB', padding: '10px', borderRadius: '4px' }}>
-                  <p style={{ fontSize: '9px', color: '#6B7280', marginBottom: '3px' }}>Parcelas de Dívida</p>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#EF4444' }}>R$ {parcelasDivida.toFixed(2)}</p>
-                </div>
-              </div>
-              <div style={{ backgroundColor: '#DBEAFE', padding: '12px', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: '600', color: '#1E3A8A', fontSize: '12px' }}>Caixa Líquido Disponível (CLD):</span>
-                  <span style={{ fontSize: '22px', fontWeight: 'bold', color: '#1E3A8A' }}>R$ {pulmao.cld}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ANOMALIAS */}
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1F2937', marginBottom: '12px', borderBottom: '2px solid #D1D5DB', paddingBottom: '6px' }}>
-                3. Anomalias Detectadas
-              </h3>
-              {anomalias.length > 0 ? (
-                <div>
-                  {anomalias.map((a, idx) => (
-                    <div key={idx} style={{ 
-                      padding: '12px', 
-                      backgroundColor: a.criticidade === 'ALTA' ? '#FEE2E2' : a.criticidade === 'MÉDIA' ? '#FEF3C7' : '#DBEAFE',
-                      borderLeft: `4px solid ${a.criticidade === 'ALTA' ? '#DC2626' : a.criticidade === 'MÉDIA' ? '#F59E0B' : '#3B82F6'}`,
-                      borderRadius: '4px', 
-                      marginBottom: '10px' 
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <p style={{ fontWeight: 'bold', fontSize: '12px', color: '#1F2937' }}>
-                          {a.codigo} - {a.titulo}
-                        </p>
-                        <span style={{ 
-                          fontSize: '9px', 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
-                          fontWeight: 'bold',
-                          backgroundColor: a.criticidade === 'ALTA' ? '#FCA5A5' : a.criticidade === 'MÉDIA' ? '#FCD34D' : '#93C5FD',
-                          color: a.criticidade === 'ALTA' ? '#7F1D1D' : a.criticidade === 'MÉDIA' ? '#78350F' : '#1E3A8A'
-                        }}>
-                          {a.criticidade}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '10px', color: '#4B5563', marginBottom: '4px', lineHeight: '1.4' }}>{a.descricao}</p>
-                      <p style={{ fontSize: '9px', color: '#6B7280', fontWeight: 'bold', marginBottom: '4px' }}>Impacto: {a.impacto}</p>
-                      {a.recomendacao && (
-                        <p style={{ fontSize: '9px', color: '#065F46', backgroundColor: '#D1FAE5', padding: '6px', borderRadius: '4px' }}>
-                          💡 {a.recomendacao}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ padding: '18px', backgroundColor: '#D1FAE5', borderRadius: '8px', textAlign: 'center' }}>
-                  <p style={{ color: '#065F46', fontWeight: '600', fontSize: '13px' }}>✓ Nenhuma anomalia crítica detectada</p>
-                </div>
-              )}
-            </div>
-
-            {/* RECOMENDAÇÕES */}
-            {recomendacoes.length > 0 && (
-              <div style={{ marginBottom: '25px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1F2937', marginBottom: '12px', borderBottom: '2px solid #D1D5DB', paddingBottom: '6px' }}>
-                  4. Recomendações
-                </h3>
-                {recomendacoes.map((rec, idx) => (
-                  <div key={idx} style={{ 
-                    padding: '12px', 
-                    backgroundColor: rec.prioridade === 'URGENTE' ? '#FEF2F2' : rec.prioridade === 'ALTA' ? '#FFF7ED' : '#F0FDF4',
-                    borderLeft: `4px solid ${rec.prioridade === 'URGENTE' ? '#DC2626' : rec.prioridade === 'ALTA' ? '#EA580C' : '#16A34A'}`,
-                    borderRadius: '4px', 
-                    marginBottom: '10px' 
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <span style={{ 
-                        fontSize: '9px', 
-                        padding: '2px 8px', 
-                        borderRadius: '4px', 
-                        fontWeight: 'bold',
-                        backgroundColor: rec.prioridade === 'URGENTE' ? '#FCA5A5' : rec.prioridade === 'ALTA' ? '#FDBA74' : '#86EFAC',
-                        color: rec.prioridade === 'URGENTE' ? '#7F1D1D' : rec.prioridade === 'ALTA' ? '#7C2D12' : '#14532D'
-                      }}>
-                        {rec.prioridade}
-                      </span>
-                      <p style={{ fontWeight: 'bold', fontSize: '12px', color: '#1F2937' }}>{rec.titulo}</p>
-                    </div>
-                    <p style={{ fontSize: '10px', color: '#4B5563', marginBottom: '6px' }}>{rec.descricao}</p>
-                    <p style={{ fontSize: '10px', color: '#1E40AF', backgroundColor: '#DBEAFE', padding: '6px', borderRadius: '4px' }}>
-                      🎯 <strong>Ação:</strong> {rec.acao}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* RODAPÉ */}
-            <div style={{ marginTop: '30px', paddingTop: '15px', borderTop: '2px solid #D1D5DB', textAlign: 'center', fontSize: '10px', color: '#9CA3AF' }}>
-              <p>Relatório gerado em {new Date().toLocaleDateString('pt-BR')}</p>
-              <p style={{ marginTop: '5px' }}>Documento confidencial e de uso exclusivo do cliente</p>
-            </div>
-          </div>
-        </div>
-
-        {/* TELA VISÍVEL */}
-        <div className={`min-h-screen ${themeClasses.bg} p-8 transition-colors duration-300`}>
+      <div className={`min-h-screen ${themeClasses.bg} p-8`}>
           <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
           <div className="max-w-5xl mx-auto">
-            <div className={`${themeClasses.card} rounded-xl shadow-lg p-8 transition-colors duration-300`}>
-              <h2 className={`text-3xl font-bold ${themeClasses.text} mb-4 text-center`}>
-                Resumo do Diagnóstico Financeiro
-              </h2>
-              <p className={`${themeClasses.textSecondary} mb-8 text-center`}>
-                {nomeEmpresa || 'Empresa'} - {mesReferencia || 'Período de Análise'}
-              </p>
+            <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+              <h2 className={`text-3xl font-bold ${themeClasses.text} mb-4 text-center`}>Resumo do Diagnóstico</h2>
+              <p className={`${themeClasses.textSecondary} mb-8 text-center`}>{nomeEmpresa || 'Empresa'} - {mesReferencia || 'Período'}</p>
 
-              {/* INDICADORES DE SAÚDE */}
+              {/* Indicadores de Saúde */}
               <div className="grid grid-cols-4 gap-4 mb-8">
                 <HealthIndicator status={saude.pulmao} label="Pulmão" darkMode={darkMode} />
                 <HealthIndicator status={saude.resultado} label="Resultado" darkMode={darkMode} />
                 <HealthIndicator status={saude.anomalias} label="Anomalias" darkMode={darkMode} />
-                <HealthIndicator status={saude.operacao} label="Operação" darkMode={darkMode} />
+                <HealthIndicator status={saude.custos} label="Custos" darkMode={darkMode} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* RESUMO DO CAIXA */}
-                <div className={`${themeClasses.highlight} rounded-lg p-6 transition-colors duration-300`}>
+                {/* Resumo do Caixa */}
+                <div className={`${themeClasses.highlight} rounded-lg p-6`}>
                   <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>📊 Resumo do Caixa</h3>
-                  
-                  <div className="mb-4">
-                    <PieChart data={dadosGrafico} darkMode={darkMode} />
+
+                  {/* Entradas separadas */}
+                  <div className={`mb-4 p-3 rounded-lg ${darkMode ? 'bg-green-900/20' : 'bg-green-50'}`}>
+                    <p className={`text-sm font-semibold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-2`}>📥 Entradas</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className={themeClasses.textSecondary}>Operacionais:</span>
+                        <span className="font-bold text-green-500">R$ {resumo.entradasOperacionais.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className={themeClasses.textSecondary}>Não Operacionais:</span>
+                        <span className="font-bold text-yellow-500">R$ {resumo.entradasNaoOperacionais.toFixed(2)}</span>
+                      </div>
+                      <div className={`flex justify-between pt-1 border-t ${themeClasses.border}`}>
+                        <span className={`font-semibold ${themeClasses.text}`}>Total:</span>
+                        <span className="font-bold text-green-600">R$ {resumo.entradas.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    {resumo.percentualOperacional < 80 && resumo.entradas > 0 && (
+                      <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-300' : 'text-yellow-700'}`}>
+                        ⚠️ Apenas {resumo.percentualOperacional.toFixed(0)}% das entradas são operacionais
+                      </p>
+                    )}
                   </div>
 
-                  <div className="space-y-2">
-                    <ProgressBar 
-                      value={resumo.categorizado['OPERAÇÃO']} 
-                      max={resumo.totalSaidas || 1} 
-                      color="bg-indigo-500" 
-                      label="Operação" 
-                      darkMode={darkMode}
-                    />
-                    <ProgressBar 
-                      value={resumo.categorizado['PRÓ-LABORE']} 
-                      max={resumo.totalSaidas || 1} 
-                      color="bg-amber-500" 
-                      label="Pró-labore" 
-                      darkMode={darkMode}
-                    />
-                    <ProgressBar 
-                      value={resumo.categorizado['IMPOSTOS']} 
-                      max={resumo.totalSaidas || 1} 
-                      color="bg-emerald-500" 
-                      label="Impostos" 
-                      darkMode={darkMode}
-                    />
-                    <ProgressBar 
-                      value={resumo.categorizado['DÍVIDAS']} 
-                      max={resumo.totalSaidas || 1} 
-                      color="bg-red-500" 
-                      label="Dívidas" 
-                      darkMode={darkMode}
-                    />
+                  <PieChart data={dadosGrafico} darkMode={darkMode} />
+                  <div className="mt-4 space-y-2">
+                    <ProgressBar value={resumo.categorizado['OPERAÇÃO']} max={resumo.totalSaidas || 1} color="bg-indigo-500" label="Operação" darkMode={darkMode} />
+                    <ProgressBar value={resumo.categorizado['PRÓ-LABORE']} max={resumo.totalSaidas || 1} color="bg-amber-500" label="Pró-labore" darkMode={darkMode} />
+                    <ProgressBar value={resumo.categorizado['IMPOSTOS']} max={resumo.totalSaidas || 1} color="bg-emerald-500" label="Impostos" darkMode={darkMode} />
+                    <ProgressBar value={resumo.categorizado['DÍVIDAS']} max={resumo.totalSaidas || 1} color="bg-red-500" label="Dívidas" darkMode={darkMode} />
                   </div>
-
-                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-indigo-900/30 border-indigo-500' : 'bg-indigo-50 border-indigo-200'} border-2`}>
+                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-indigo-900/30' : 'bg-indigo-50'} border-2 ${darkMode ? 'border-indigo-500' : 'border-indigo-200'}`}>
                     <div className="flex justify-between items-center">
                       <span className={`font-bold ${themeClasses.text}`}>Resultado:</span>
-                      <span className={`text-xl font-bold ${resumo.resultado >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        R$ {resumo.resultado.toFixed(2)}
-                      </span>
+                      <span className={`text-xl font-bold ${resumo.resultado >= 0 ? 'text-green-500' : 'text-red-500'}`}>R$ {resumo.resultado.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* PULMÃO FINANCEIRO */}
-                <div className={`${darkMode ? 'bg-indigo-900/20' : 'bg-indigo-50'} rounded-lg p-6 transition-colors duration-300`}>
-                  <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>🫁 Pulmão Financeiro</h3>
-                  <div className="text-center">
-                    <p className={`text-6xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-600'} mb-2`}>{pulmao.dias}</p>
-                    <p className={`${themeClasses.textSecondary} mb-4`}>dias ({pulmao.meses} meses)</p>
-                    <p className={`inline-block px-4 py-2 rounded-full font-semibold ${
-                      pulmao.cor === 'red' ? 'bg-red-100 text-red-800' : 
-                      pulmao.cor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {pulmao.classificacao}
-                    </p>
-                    <p className={`text-xs ${themeClasses.textSecondary} mt-3`}>CLD: R$ {pulmao.cld}</p>
+                {/* Pulmão + Custos */}
+                <div className="space-y-6">
+                  <div className={`${darkMode ? 'bg-indigo-900/20' : 'bg-indigo-50'} rounded-lg p-6`}>
+                    <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>🫁 Pulmão Financeiro</h3>
+                    <div className="text-center">
+                      <p className={`text-5xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{pulmao.dias}</p>
+                      <p className={themeClasses.textSecondary}>dias ({pulmao.meses} meses)</p>
+                      <span className={`inline-block mt-3 px-4 py-2 rounded-full font-semibold ${
+                        pulmao.cor === 'red' ? 'bg-red-100 text-red-800' : 
+                        pulmao.cor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                      }`}>{pulmao.classificacao}</span>
+                    </div>
                   </div>
+
+                  {receitaBruta > 0 && (
+                    <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} rounded-lg p-6`}>
+                      <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>💰 Custos Financeiros</h3>
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                          <p className={`text-xs ${themeClasses.textSecondary}`}>T1 Taxa</p>
+                          <p className={`text-lg font-bold ${parseFloat(custos.t1.taxa) > 5 ? 'text-red-500' : 'text-green-500'}`}>{custos.t1.taxa}%</p>
+                        </div>
+                        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                          <p className={`text-xs ${themeClasses.textSecondary}`}>T2 Antecip.</p>
+                          <p className={`text-lg font-bold ${parseFloat(custos.t2.percentual) > 2 ? 'text-red-500' : 'text-green-500'}`}>R$ {custos.t2.custo}</p>
+                        </div>
+                        <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                          <p className={`text-xs ${themeClasses.textSecondary}`}>T3 Ocultos</p>
+                          <p className={`text-lg font-bold ${parseFloat(custos.t3.percentual) > 3 ? 'text-red-500' : 'text-green-500'}`}>R$ {custos.t3.total}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* ANOMALIAS */}
-              <div className={`${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} rounded-lg p-6 mb-8 transition-colors duration-300`}>
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-yellow-300' : 'text-yellow-900'} mb-4`}>⚠️ Anomalias Detectadas</h3>
-                {anomalias.length > 0 ? (
-                  <ul className="space-y-3">
+              {/* Anomalias */}
+              {anomalias.length > 0 && (
+                <div className={`${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} rounded-lg p-6 mb-8`}>
+                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-yellow-300' : 'text-yellow-900'} mb-4`}>⚠️ Anomalias ({anomalias.length})</h3>
+                  <div className="space-y-3">
                     {anomalias.map((a, idx) => (
-                      <li key={idx} className={`p-4 rounded-lg border-l-4 ${
+                      <div key={idx} className={`p-4 rounded-lg border-l-4 ${
                         a.criticidade === 'ALTA' ? `${darkMode ? 'bg-red-900/30' : 'bg-red-50'} border-red-500` :
-                        a.criticidade === 'MÉDIA' ? `${darkMode ? 'bg-yellow-900/30' : 'bg-yellow-50'} border-yellow-500` :
-                        `${darkMode ? 'bg-blue-900/30' : 'bg-blue-50'} border-blue-500`
+                        `${darkMode ? 'bg-yellow-900/30' : 'bg-yellow-50'} border-yellow-500`
                       }`}>
-                        <div className="flex items-start justify-between mb-2">
+                        <div className="flex justify-between items-start mb-2">
                           <p className={`font-bold ${themeClasses.text} text-sm`}>{a.codigo} - {a.titulo}</p>
                           <span className={`text-xs px-2 py-1 rounded font-semibold ${
-                            a.criticidade === 'ALTA' ? 'bg-red-200 text-red-800' :
-                            a.criticidade === 'MÉDIA' ? 'bg-yellow-200 text-yellow-800' :
-                            'bg-blue-200 text-blue-800'
-                          }`}>
-                            {a.criticidade}
-                          </span>
+                            a.criticidade === 'ALTA' ? 'bg-red-200 text-red-800' : 'bg-yellow-200 text-yellow-800'
+                          }`}>{a.criticidade}</span>
                         </div>
-                        <p className={`text-sm ${themeClasses.textSecondary} mb-2`}>{a.descricao}</p>
-                        <p className={`text-xs ${themeClasses.textSecondary} font-semibold mb-2`}>Impacto: {a.impacto}</p>
-                        {a.recomendacao && (
-                          <p className={`text-xs ${darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-700'} p-2 rounded`}>
-                            💡 {a.recomendacao}
-                          </p>
-                        )}
-                      </li>
+                        <p className={`text-sm ${themeClasses.textSecondary}`}>{a.impacto}</p>
+                        {a.recomendacao && <p className={`text-xs mt-2 ${darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-50 text-green-700'} p-2 rounded`}>💡 {a.recomendacao}</p>}
+                      </div>
                     ))}
-                  </ul>
-                ) : (
-                  <div className={`flex items-center ${darkMode ? 'text-green-400' : 'text-green-700'}`}>
-                    <CheckIcon />
-                    <span>Nenhuma anomalia detectada</span>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
-              {/* RECOMENDAÇÕES */}
+              {/* Recomendações */}
               {recomendacoes.length > 0 && (
-                <div className={`${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'} rounded-lg p-6 mb-8 transition-colors duration-300`}>
+                <div className={`${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'} rounded-lg p-6 mb-8`}>
                   <h3 className={`text-lg font-semibold ${darkMode ? 'text-blue-300' : 'text-blue-900'} mb-4`}>📋 Recomendações</h3>
-                  <ul className="space-y-3">
+                  <div className="space-y-3">
                     {recomendacoes.map((rec, idx) => (
-                      <li key={idx} className={`p-4 rounded-lg border-l-4 ${
+                      <div key={idx} className={`p-4 rounded-lg border-l-4 ${
                         rec.prioridade === 'URGENTE' ? `${darkMode ? 'bg-red-900/30' : 'bg-red-50'} border-red-500` :
-                        rec.prioridade === 'ALTA' ? `${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border-orange-500` :
                         `${darkMode ? 'bg-green-900/30' : 'bg-green-50'} border-green-500`
                       }`}>
                         <div className="flex items-center gap-2 mb-2">
                           <span className={`text-xs px-2 py-1 rounded font-semibold ${
-                            rec.prioridade === 'URGENTE' ? 'bg-red-200 text-red-800' :
-                            rec.prioridade === 'ALTA' ? 'bg-orange-200 text-orange-800' :
-                            'bg-green-200 text-green-800'
-                          }`}>
-                            {rec.prioridade}
-                          </span>
+                            rec.prioridade === 'URGENTE' ? 'bg-red-200 text-red-800' : 'bg-green-200 text-green-800'
+                          }`}>{rec.prioridade}</span>
                           <p className={`font-bold ${themeClasses.text} text-sm`}>{rec.titulo}</p>
                         </div>
-                        <p className={`text-sm ${themeClasses.textSecondary} mb-2`}>{rec.descricao}</p>
-                        <p className={`text-xs ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'} p-2 rounded`}>
-                          🎯 <strong>Ação:</strong> {rec.acao}
-                        </p>
-                      </li>
+                        <p className={`text-xs ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'} p-2 rounded`}>🎯 {rec.acao}</p>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
 
-              <button
-                onClick={gerarPDF}
-                disabled={gerandoPDF}
-                className={`w-full px-6 py-4 rounded-lg flex items-center justify-center gap-2 font-semibold mb-4 ${
-                  gerandoPDF 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700'
-                } text-white transition-colors duration-300`}
-              >
-                {gerandoPDF ? (
-                  <>
-                    <svg className="animate-spin h-6 w-6" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Gerando PDF...
-                  </>
-                ) : (
-                  <>
-                    <DownloadIcon />
-                    Baixar Relatório em PDF
-                  </>
-                )}
+              <button onClick={abrirRelatorioNovaAba}
+                className={`w-full px-6 py-4 rounded-lg flex items-center justify-center gap-2 font-semibold mb-4 ${darkMode ? 'bg-green-600 hover:bg-green-700' : 'bg-green-500 hover:bg-green-600'} text-white`}>
+                <DownloadIcon />
+                Gerar Relatório PDF
               </button>
 
-              <button
-                onClick={() => setStep(1)}
-                className={`w-full ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-2 rounded-lg transition-colors duration-300`}
-              >
-                Nova Análise
-              </button>
+              <div className="flex gap-4">
+                <button onClick={() => setStep(4)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'} px-6 py-2 rounded-lg hover:opacity-80`}>
+                  ← Voltar
+                </button>
+                <button onClick={() => setStep(1)} className={`flex-1 ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-300 text-gray-800'} px-6 py-2 rounded-lg hover:opacity-80`}>
+                  Nova Análise
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </>
     );
   }
 };
