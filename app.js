@@ -164,7 +164,8 @@ const HealthIndicator = ({ status, label, darkMode }) => {
 // ============================================
 const DiagnosticoFinanceiro = () => {
   const [step, setStep] = useState(1);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [classificadas, setClassificadas] = useState([]);
   
@@ -798,53 +799,53 @@ const DiagnosticoFinanceiro = () => {
     .section { margin-bottom: 25px; }
     .section h3 { font-size: 16px; font-weight: bold; color: #1F2937; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #E5E7EB; }
     .indicadores { display: flex; gap: 12px; margin-bottom: 20px; }
-    .indicador { flex: 1; padding: 12px; border-radius: 8px; text-align: center; }
-    .indicador.good { background: #D1FAE5; }
-    .indicador.warning { background: #FEF3C7; }
-    .indicador.danger { background: #FEE2E2; }
+    .indicador { flex: 1; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #E5E7EB; }
+    .indicador.good { background: #F9FAFB; }
+    .indicador.warning { background: #F9FAFB; }
+    .indicador.danger { background: #F9FAFB; }
     .indicador .icon { width: 24px; height: 24px; border-radius: 50%; margin: 0 auto 6px; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-    .indicador.good .icon { background: #10B981; }
-    .indicador.warning .icon { background: #F59E0B; }
-    .indicador.danger .icon { background: #EF4444; }
+    .indicador.good .icon { background: #059669; }
+    .indicador.warning .icon { background: #D97706; }
+    .indicador.danger .icon { background: #DC2626; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .card { background: #F9FAFB; padding: 15px; border-radius: 8px; }
+    .card { background: #F9FAFB; padding: 15px; border-radius: 8px; border: 1px solid #E5E7EB; }
     .card-title { font-weight: bold; margin-bottom: 10px; color: #374151; }
     .row { display: flex; justify-content: space-between; margin-bottom: 6px; }
     .row span:last-child { font-weight: bold; }
-    .green { color: #10B981; }
-    .red { color: #EF4444; }
-    .yellow { color: #F59E0B; }
-    .resultado-box { background: #EEF2FF; padding: 15px; border-radius: 8px; border: 2px solid #818CF8; margin-top: 12px; }
-    .pulmao-box { background: #EEF2FF; padding: 20px; border-radius: 8px; text-align: center; }
-    .pulmao-dias { font-size: 42px; font-weight: bold; color: #312E81; }
+    .green { color: #059669; }
+    .red { color: #DC2626; }
+    .yellow { color: #D97706; }
+    .resultado-box { background: #F9FAFB; padding: 15px; border-radius: 8px; border: 2px solid #6B7280; margin-top: 12px; }
+    .pulmao-box { background: #F9FAFB; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #E5E7EB; }
+    .pulmao-dias { font-size: 42px; font-weight: bold; color: #1F2937; }
     .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 11px; margin-top: 10px; }
-    .badge.red { background: #FEE2E2; color: #991B1B; }
-    .badge.yellow { background: #FEF3C7; color: #92400E; }
-    .badge.green { background: #D1FAE5; color: #065F46; }
-    .anomalia { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; }
-    .anomalia.alta { background: #FEE2E2; border-color: #DC2626; }
-    .anomalia.media { background: #FEF3C7; border-color: #F59E0B; }
+    .badge.red { background: #F3F4F6; color: #DC2626; border: 1px solid #DC2626; }
+    .badge.yellow { background: #F3F4F6; color: #D97706; border: 1px solid #D97706; }
+    .badge.green { background: #F3F4F6; color: #059669; border: 1px solid #059669; }
+    .anomalia { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; background: #F9FAFB; }
+    .anomalia.alta { border-color: #DC2626; }
+    .anomalia.media { border-color: #D97706; }
     .anomalia-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
     .anomalia-title { font-weight: bold; font-size: 12px; }
     .anomalia-badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: bold; }
-    .anomalia.alta .anomalia-badge { background: #FCA5A5; color: #7F1D1D; }
-    .anomalia.media .anomalia-badge { background: #FCD34D; color: #78350F; }
-    .recomendacao { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; }
-    .recomendacao.urgente { background: #FEF2F2; border-color: #DC2626; }
-    .recomendacao.alta { background: #F0FDF4; border-color: #16A34A; }
-    .tip { font-size: 10px; background: #D1FAE5; color: #065F46; padding: 6px; border-radius: 4px; margin-top: 6px; }
-    .action { font-size: 10px; background: #DBEAFE; color: #1E40AF; padding: 6px; border-radius: 4px; margin-top: 6px; }
+    .anomalia.alta .anomalia-badge { background: #F3F4F6; color: #DC2626; }
+    .anomalia.media .anomalia-badge { background: #F3F4F6; color: #D97706; }
+    .recomendacao { padding: 12px; margin-bottom: 10px; border-radius: 6px; border-left: 4px solid; background: #F9FAFB; }
+    .recomendacao.urgente { border-color: #DC2626; }
+    .recomendacao.alta { border-color: #059669; }
+    .tip { font-size: 10px; background: #F3F4F6; color: #374151; padding: 6px; border-radius: 4px; margin-top: 6px; }
+    .action { font-size: 10px; background: #F3F4F6; color: #374151; padding: 6px; border-radius: 4px; margin-top: 6px; }
     .footer { margin-top: 25px; padding-top: 12px; border-top: 1px solid #E5E7EB; text-align: center; font-size: 10px; color: #9CA3AF; }
     .custos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-    .custo-card { background: white; padding: 10px; border-radius: 6px; text-align: center; }
+    .custo-card { background: white; padding: 10px; border-radius: 6px; text-align: center; border: 1px solid #E5E7EB; }
     .custo-card p:first-child { font-size: 10px; color: #6B7280; margin-bottom: 4px; }
     .custo-card p:last-child { font-size: 16px; font-weight: bold; }
     .progress-bar { height: 8px; background: #E5E7EB; border-radius: 4px; margin-top: 4px; margin-bottom: 8px; }
     .progress-fill { height: 100%; border-radius: 4px; }
-    .progress-fill.op { background: #6366F1; }
-    .progress-fill.pl { background: #F59E0B; }
-    .progress-fill.im { background: #10B981; }
-    .progress-fill.di { background: #EF4444; }
+    .progress-fill.op { background: #6B7280; }
+    .progress-fill.pl { background: #9CA3AF; }
+    .progress-fill.im { background: #4B5563; }
+    .progress-fill.di { background: #374151; }
     .print-btn { position: fixed; top: 20px; right: 20px; background: #4F46E5; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
     .print-btn:hover { background: #4338CA; }
     @media print { .print-btn { display: none; } body { background: white; } .container { box-shadow: none; } }
@@ -1017,20 +1018,27 @@ const DiagnosticoFinanceiro = () => {
               </div>
               <div>
                 <label className={`block text-sm font-medium ${themeClasses.text} mb-2`}>Mês de Referência</label>
-                <input type="text" value={mesReferencia} onChange={(e) => setMesReferencia(e.target.value)}
-                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`}
-                  placeholder="Ex: Janeiro/2025" />
+                <input type="month" value={mesReferencia} onChange={(e) => setMesReferencia(e.target.value)}
+                  className={`w-full px-4 py-2 border rounded-lg ${themeClasses.input} ${themeClasses.inputFocus}`} />
               </div>
             </div>
 
-            <div className={`border-2 border-dashed ${darkMode ? 'border-indigo-500' : 'border-indigo-300'} rounded-lg p-12 text-center hover:border-indigo-400 transition`}>
+            <label
+              className={`block border-2 border-dashed ${isDragging ? 'border-indigo-500 bg-indigo-500/10' : darkMode ? 'border-indigo-500' : 'border-indigo-300'} rounded-lg p-12 text-center hover:border-indigo-400 transition cursor-pointer`}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const file = e.dataTransfer.files[0];
+                if (file) handleFileUpload({ target: { files: [file] } });
+              }}
+            >
               <UploadIcon />
-              <label className="cursor-pointer">
-                <span className={`text-lg ${themeClasses.text} font-medium`}>Clique para fazer upload do extrato bancário</span>
-                <p className={`text-sm ${themeClasses.textSecondary} mt-2`}>Formatos: Excel (.xlsx, .xls) ou CSV</p>
-                <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
-              </label>
-            </div>
+              <span className={`text-lg ${themeClasses.text} font-medium block`}>Clique ou arraste o extrato bancário aqui</span>
+              <p className={`text-sm ${themeClasses.textSecondary} mt-2`}>Formatos: Excel (.xlsx, .xls) ou CSV</p>
+              <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileUpload} />
+            </label>
 
             <div className={`mt-8 ${themeClasses.warning} border-l-4 p-4 rounded-r-lg`}>
               <div className="flex">
@@ -1061,6 +1069,9 @@ const DiagnosticoFinanceiro = () => {
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-4xl mx-auto">
           <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <button onClick={() => setStep(1)} className={`mb-4 ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'} flex items-center gap-2 transition`}>
+              ← Voltar ao início
+            </button>
             <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 2: Resumo do Extrato</h2>
             <p className={`${themeClasses.textSecondary} mb-6`}>Confira o resumo automático e informe os valores específicos do mês.</p>
 
@@ -1198,12 +1209,9 @@ const DiagnosticoFinanceiro = () => {
             </div>
 
             {/* Navegação */}
-            <div className="flex gap-4">
-              <button onClick={() => setStep(1)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg transition`}>
-                ← Voltar
-              </button>
+            <div className="flex justify-center mt-6">
               <button onClick={() => setStep(3)} disabled={erroSomaExcede || erroEntradasExcede}
-                className={`flex-1 px-6 py-3 rounded-lg transition ${erroSomaExcede || erroEntradasExcede ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                className={`px-8 py-3 rounded-lg transition ${erroSomaExcede || erroEntradasExcede ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                 Próximo →
               </button>
             </div>
@@ -1218,12 +1226,15 @@ const DiagnosticoFinanceiro = () => {
   // ============================================
   if (step === 3) {
     const pulmao = calcularPulmaoFinanceiro();
-    
+
     return (
       <div className={`min-h-screen ${themeClasses.bg} p-8`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-4xl mx-auto">
           <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <button onClick={() => setStep(2)} className={`mb-4 ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'} flex items-center gap-2 transition`}>
+              ← Voltar
+            </button>
             <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 3: Pulmão Financeiro</h2>
             <p className={`${themeClasses.textSecondary} mb-6`}>Preencha os campos para calcular o pulmão financeiro.</p>
 
@@ -1273,12 +1284,9 @@ const DiagnosticoFinanceiro = () => {
               </div>
             )}
 
-            <div className="flex gap-4">
-              <button onClick={() => setStep(2)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg`}>
-                ← Voltar
-              </button>
+            <div className="flex justify-center mt-6">
               <button onClick={() => setStep(4)} disabled={comr <= 0}
-                className={`flex-1 px-6 py-3 rounded-lg ${comr <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                className={`px-8 py-3 rounded-lg ${comr <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                 Próximo: Custos Financeiros →
               </button>
             </div>
@@ -1293,12 +1301,15 @@ const DiagnosticoFinanceiro = () => {
   // ============================================
   if (step === 4) {
     const custos = calcularCustosFinanceiros();
-    
+
     return (
       <div className={`min-h-screen ${themeClasses.bg} p-8`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
         <div className="max-w-4xl mx-auto">
           <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+            <button onClick={() => setStep(3)} className={`mb-4 ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'} flex items-center gap-2 transition`}>
+              ← Voltar
+            </button>
             <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 4: Custos Financeiros</h2>
             <p className={`${themeClasses.textSecondary} mb-6`}>Analise taxas de vendas e custos bancários ocultos.</p>
 
@@ -1546,11 +1557,8 @@ const DiagnosticoFinanceiro = () => {
               <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Valor informado no passo 2 - pode ajustar se necessário</p>
             </div>
 
-            <div className="flex gap-4">
-              <button onClick={() => setStep(3)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'} px-6 py-3 rounded-lg hover:opacity-80`}>
-                ← Voltar
-              </button>
-              <button onClick={() => setStep(5)} className="flex-1 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700">
+            <div className="flex justify-center mt-6">
+              <button onClick={() => setStep(5)} className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
                 Ver Resumo Final →
               </button>
             </div>
@@ -1583,6 +1591,9 @@ const DiagnosticoFinanceiro = () => {
           <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
           <div className="max-w-5xl mx-auto">
             <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
+              <button onClick={() => setStep(4)} className={`mb-4 ${darkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-600 hover:text-gray-800'} flex items-center gap-2 transition`}>
+                ← Voltar
+              </button>
               <h2 className={`text-3xl font-bold ${themeClasses.text} mb-4 text-center`}>Resumo do Diagnóstico</h2>
               <p className={`${themeClasses.textSecondary} mb-8 text-center`}>{nomeEmpresa || 'Empresa'} - {mesReferencia || 'Período'}</p>
 
@@ -1737,11 +1748,8 @@ const DiagnosticoFinanceiro = () => {
                 Gerar Relatório PDF
               </button>
 
-              <div className="flex gap-4">
-                <button onClick={() => setStep(4)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'} px-6 py-2 rounded-lg hover:opacity-80`}>
-                  ← Voltar
-                </button>
-                <button onClick={() => setStep(1)} className={`flex-1 ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-gray-300 text-gray-800'} px-6 py-2 rounded-lg hover:opacity-80`}>
+              <div className="flex justify-center">
+                <button onClick={() => setStep(1)} className={`${darkMode ? 'bg-gray-600 text-gray-200 hover:bg-gray-500' : 'bg-gray-300 text-gray-800 hover:bg-gray-400'} px-8 py-2 rounded-lg transition`}>
                   Nova Análise
                 </button>
               </div>
