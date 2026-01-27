@@ -4,13 +4,13 @@ const { useState, useEffect } = React;
 // ÍCONES SVG
 // ============================================
 const UploadIcon = () => (
-  <svg className="w-12 h-12 text-indigo-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-12 h-12 text-emerald-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
   </svg>
 );
 
 const FileIcon = () => (
-  <svg className="w-16 h-16 text-indigo-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+  <svg className="w-16 h-16 text-emerald-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
   </svg>
 );
@@ -63,15 +63,56 @@ const ThemeToggle = ({ darkMode, setDarkMode }) => (
 );
 
 // ============================================
+// COMPONENTE DE GRÁFICO DE BARRAS HORIZONTAIS
+// ============================================
+const HorizontalBarChart = ({ data, darkMode, formatValue }) => {
+  const maxValue = Math.max(...data.map(d => d.value), 1);
+  const colors = ['#34D399', '#10B981', '#059669', '#047857'];
+
+  return (
+    <div className="space-y-3">
+      {data.map((item, idx) => {
+        const percentage = (item.value / maxValue) * 100;
+        return (
+          <div key={idx}>
+            <div className="flex justify-between text-sm mb-1">
+              <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>{item.label}</span>
+              <span className={`font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                {formatValue ? formatValue(item.value) : item.value.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+              </span>
+            </div>
+            <div className={`h-6 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} overflow-hidden`}>
+              <div
+                className="h-full rounded transition-all duration-500 flex items-center justify-end pr-2"
+                style={{
+                  width: `${Math.max(percentage, 5)}%`,
+                  backgroundColor: colors[idx % colors.length]
+                }}
+              >
+                {percentage > 15 && (
+                  <span className="text-xs font-medium text-white">
+                    {percentage.toFixed(0)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// ============================================
 // COMPONENTE DE GRÁFICO DE PIZZA (SVG)
 // ============================================
 const PieChart = ({ data, darkMode }) => {
   const total = data.reduce((sum, item) => sum + item.value, 0);
   if (total === 0) return null;
-  
-  const colors = ['#6366F1', '#F59E0B', '#10B981', '#EF4444'];
+
+  const colors = ['#34D399', '#10B981', '#059669', '#047857'];
   let currentAngle = 0;
-  
+
   return (
     <div className="flex items-center gap-4">
       <svg viewBox="0 0 100 100" className="w-32 h-32">
@@ -81,17 +122,17 @@ const PieChart = ({ data, darkMode }) => {
           const startAngle = currentAngle;
           const endAngle = currentAngle + angle;
           currentAngle = endAngle;
-          
+
           const startRad = (startAngle - 90) * Math.PI / 180;
           const endRad = (endAngle - 90) * Math.PI / 180;
-          
+
           const x1 = 50 + 40 * Math.cos(startRad);
           const y1 = 50 + 40 * Math.sin(startRad);
           const x2 = 50 + 40 * Math.cos(endRad);
           const y2 = 50 + 40 * Math.sin(endRad);
-          
+
           const largeArc = angle > 180 ? 1 : 0;
-          
+
           return (
             <path
               key={idx}
@@ -220,22 +261,25 @@ const DiagnosticoFinanceiro = () => {
     localStorage.setItem('diagnostico-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
-  // Classes dinâmicas baseadas no tema
+  // Classes dinâmicas baseadas no tema - Verde claro (#34D399) com preto
   const themeClasses = {
-    bg: darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100',
-    card: darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white',
-    text: darkMode ? 'text-gray-100' : 'text-gray-800',
+    bg: darkMode ? 'bg-gray-950' : 'bg-gradient-to-br from-gray-50 to-emerald-50',
+    card: darkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white',
+    text: darkMode ? 'text-gray-100' : 'text-gray-900',
     textSecondary: darkMode ? 'text-gray-400' : 'text-gray-600',
-    input: darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900',
-    inputFocus: darkMode ? 'focus:ring-indigo-400 focus:border-indigo-400' : 'focus:ring-indigo-500 focus:border-indigo-500',
-    table: darkMode ? 'bg-gray-700' : 'bg-gray-100',
-    tableRow: darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50',
-    border: darkMode ? 'border-gray-700' : 'border-gray-200',
-    highlight: darkMode ? 'bg-gray-700' : 'bg-gray-50',
+    input: darkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900',
+    inputFocus: darkMode ? 'focus:ring-emerald-400 focus:border-emerald-400' : 'focus:ring-emerald-500 focus:border-emerald-500',
+    table: darkMode ? 'bg-gray-800' : 'bg-gray-100',
+    tableRow: darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50',
+    border: darkMode ? 'border-gray-800' : 'border-gray-200',
+    highlight: darkMode ? 'bg-gray-800' : 'bg-gray-50',
     warning: darkMode ? 'bg-yellow-900/30 border-yellow-600' : 'bg-yellow-50 border-yellow-400',
     warningText: darkMode ? 'text-yellow-300' : 'text-yellow-800',
-    info: darkMode ? 'bg-blue-900/30 border-blue-600' : 'bg-blue-50 border-blue-400',
-    infoText: darkMode ? 'text-blue-300' : 'text-blue-800',
+    info: darkMode ? 'bg-emerald-900/30 border-emerald-600' : 'bg-emerald-50 border-emerald-400',
+    infoText: darkMode ? 'text-emerald-300' : 'text-emerald-800',
+    accent: darkMode ? 'bg-emerald-500' : 'bg-emerald-400',
+    accentHover: darkMode ? 'hover:bg-emerald-600' : 'hover:bg-emerald-500',
+    accentText: darkMode ? 'text-emerald-400' : 'text-emerald-600',
   };
 
   // ============ SISTEMA DE DETECÇÃO AUTOMÁTICA DE COLUNAS ============
@@ -283,7 +327,7 @@ const DiagnosticoFinanceiro = () => {
   };
 
   // Lista de nomes conhecidos para fallback
-  const NOMES_VALOR = ['valor', 'value', 'amount', 'vlr', 'quantia', 'montante', 'total', 'débito', 'debito', 'crédito', 'credito'];
+  const NOMES_VALOR = ['valor', 'value', 'amount', 'vlr', 'quantia', 'montante', 'débito', 'debito', 'crédito', 'credito'];
   const NOMES_DATA = ['data', 'date', 'dt', 'data mov', 'data movimento', 'data lançamento', 'data lancamento', 'dt lancamento', 'dt lanc'];
   const NOMES_DESCRICAO = ['descrição', 'descricao', 'description', 'desc', 'histórico', 'historico', 'lançamento', 'lancamento', 'memo', 'detalhe', 'detalhes', 'observação', 'observacao', 'obs'];
 
@@ -383,7 +427,6 @@ const DiagnosticoFinanceiro = () => {
 
       const processadas = jsonData
         .filter(row => {
-          // Ignora linhas sem valor ou com data inválida
           const valor = colunaValor ? row[colunaValor] : null;
           const dataVal = colunaData ? row[colunaData] : null;
           // Ignora linhas de saldo
@@ -393,11 +436,13 @@ const DiagnosticoFinanceiro = () => {
           if (dataVal === '00/00/0000' || (!dataVal && colunaData)) return false;
           // Ignora se não tem valor
           if (valor === null || valor === undefined || valor === '') return false;
+          // Ignora valores zerados (saldos)
+          const valorNum = parseValorBR(valor);
+          if (valorNum === 0) return false;
           return true;
         })
         .map((row, idx) => {
           const valor = parseValorBR(colunaValor ? row[colunaValor] : 0);
-          // Junta todas as colunas de descrição
           const descricao = colunasDescricao
             .map(col => row[col])
             .filter(v => v && String(v).trim())
@@ -792,9 +837,9 @@ const DiagnosticoFinanceiro = () => {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.5; padding: 20px; background: #f5f5f5; }
     .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #4F46E5; }
+    .header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 3px solid #10B981; }
     .header h1 { font-size: 26px; color: #1F2937; margin-bottom: 8px; }
-    .header h2 { font-size: 18px; color: #4F46E5; margin-bottom: 5px; }
+    .header h2 { font-size: 18px; color: #10B981; margin-bottom: 5px; }
     .header p { color: #6B7280; }
     .section { margin-bottom: 25px; }
     .section h3 { font-size: 16px; font-weight: bold; color: #1F2937; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #E5E7EB; }
@@ -842,17 +887,17 @@ const DiagnosticoFinanceiro = () => {
     .custo-card p:last-child { font-size: 16px; font-weight: bold; }
     .progress-bar { height: 8px; background: #E5E7EB; border-radius: 4px; margin-top: 4px; margin-bottom: 8px; }
     .progress-fill { height: 100%; border-radius: 4px; }
-    .progress-fill.op { background: #6B7280; }
-    .progress-fill.pl { background: #9CA3AF; }
-    .progress-fill.im { background: #4B5563; }
-    .progress-fill.di { background: #374151; }
-    .print-btn { position: fixed; top: 20px; right: 20px; background: #4F46E5; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-    .print-btn:hover { background: #4338CA; }
+    .progress-fill.op { background: #34D399; }
+    .progress-fill.pl { background: #10B981; }
+    .progress-fill.im { background: #059669; }
+    .progress-fill.di { background: #047857; }
+    .print-btn { position: fixed; top: 20px; right: 20px; background: #10B981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+    .print-btn:hover { background: #059669; }
     @media print { .print-btn { display: none; } body { background: white; } .container { box-shadow: none; } }
   </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+  <button class="print-btn" onclick="window.print()">Imprimir / Salvar PDF</button>
   <div class="container">
     <div class="header">
       <h1>Diagnóstico Financeiro</h1>
@@ -952,7 +997,7 @@ const DiagnosticoFinanceiro = () => {
           </div>
           <p style="font-size: 11px; color: #4B5563;">${a.descricao}</p>
           <p style="font-size: 10px; color: #6B7280;">Impacto: ${a.impacto}</p>
-          ${a.recomendacao ? `<div class="tip">💡 ${a.recomendacao}</div>` : ''}
+          ${a.recomendacao ? `<div class="tip">Dica: ${a.recomendacao}</div>` : ''}
         </div>
       `).join('')}
     </div>
@@ -975,7 +1020,7 @@ const DiagnosticoFinanceiro = () => {
             <span style="font-weight: bold; font-size: 12px;">${rec.titulo}</span>
           </div>
           <p style="font-size: 11px; color: #4B5563;">${rec.descricao}</p>
-          <div class="action">🎯 ${rec.acao}</div>
+          <div class="action">Ação: ${rec.acao}</div>
         </div>
       `).join('')}
     </div>
@@ -1004,7 +1049,7 @@ const DiagnosticoFinanceiro = () => {
         <div className="max-w-4xl mx-auto">
           <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
             <div className="text-center mb-8">
-              <div className={darkMode ? 'text-indigo-400' : ''}><FileIcon /></div>
+              <div className={darkMode ? 'text-emerald-400' : ''}><FileIcon /></div>
               <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Diagnóstico Financeiro</h1>
               <p className={themeClasses.textSecondary}>Análise completa baseada em extrato bancário</p>
             </div>
@@ -1024,7 +1069,7 @@ const DiagnosticoFinanceiro = () => {
             </div>
 
             <label
-              className={`block border-2 border-dashed ${isDragging ? 'border-indigo-500 bg-indigo-500/10' : darkMode ? 'border-indigo-500' : 'border-indigo-300'} rounded-lg p-12 text-center hover:border-indigo-400 transition cursor-pointer`}
+              className={`block border-2 border-dashed ${isDragging ? 'border-emerald-500 bg-emerald-500/10' : darkMode ? 'border-emerald-500' : 'border-emerald-400'} rounded-lg p-12 text-center hover:border-emerald-400 transition cursor-pointer`}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
               onDrop={(e) => {
@@ -1097,7 +1142,7 @@ const DiagnosticoFinanceiro = () => {
             </div>
 
             {/* Formulário de Inputs */}
-            <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-indigo-50'} p-6 rounded-xl mb-6`}>
+            <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-emerald-50'} p-6 rounded-xl mb-6`}>
               <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Informe os valores específicos do mês</h3>
               <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
                 Estes valores serão separados das saídas operacionais para o diagnóstico.
@@ -1211,7 +1256,7 @@ const DiagnosticoFinanceiro = () => {
             {/* Navegação */}
             <div className="flex justify-center mt-6">
               <button onClick={() => setStep(3)} disabled={erroSomaExcede || erroEntradasExcede}
-                className={`px-8 py-3 rounded-lg transition ${erroSomaExcede || erroEntradasExcede ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                className={`px-8 py-3 rounded-lg transition ${erroSomaExcede || erroEntradasExcede ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
                 Próximo →
               </button>
             </div>
@@ -1254,21 +1299,21 @@ const DiagnosticoFinanceiro = () => {
               ))}
             </div>
 
-            <div className={`${darkMode ? 'bg-indigo-900/30' : 'bg-indigo-50'} p-4 rounded-lg mb-6`}>
-              <label className={`block text-sm font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-2`}>
+            <div className={`${darkMode ? 'bg-emerald-900/30' : 'bg-emerald-50'} p-4 rounded-lg mb-6`}>
+              <label className={`block text-sm font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-900'} mb-2`}>
                 COMR - Custo Operacional Mensal Real (R$)
               </label>
               <input type="number" value={comr || ''} onChange={(e) => setComr(parseFloat(e.target.value) || 0)}
-                className={`w-full px-4 py-2 border-2 rounded-lg ${darkMode ? 'border-indigo-500 bg-gray-700 text-white' : 'border-indigo-300'}`}
+                className={`w-full px-4 py-2 border-2 rounded-lg ${darkMode ? 'border-emerald-500 bg-gray-700 text-white' : 'border-emerald-400'}`}
                 placeholder="0.00" />
-              <p className={`text-xs ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mt-1`}>Despesas fixas mensais</p>
+              <p className={`text-xs ${darkMode ? 'text-emerald-400' : 'text-emerald-700'} mt-1`}>Despesas fixas mensais</p>
             </div>
 
             {comr > 0 && (
-              <div className={`${darkMode ? 'bg-gradient-to-r from-indigo-900/50 to-purple-900/50' : 'bg-gradient-to-r from-indigo-50 to-purple-50'} p-6 rounded-lg mb-6 border-2 ${darkMode ? 'border-indigo-500' : 'border-indigo-200'}`}>
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-indigo-300' : 'text-indigo-900'} mb-4 text-center`}>Resultado</h3>
+              <div className={`${darkMode ? 'bg-gradient-to-r from-emerald-900/50 to-gray-900/50' : 'bg-gradient-to-r from-emerald-50 to-gray-50'} p-6 rounded-lg mb-6 border-2 ${darkMode ? 'border-emerald-500' : 'border-emerald-300'}`}>
+                <h3 className={`text-lg font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-900'} mb-4 text-center`}>Resultado</h3>
                 <div className="text-center mb-4">
-                  <p className={`text-5xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>{pulmao.dias}</p>
+                  <p className={`text-5xl font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-900'}`}>{pulmao.dias}</p>
                   <p className={`${themeClasses.textSecondary}`}>dias ({pulmao.meses} meses)</p>
                 </div>
                 <div className="text-center mb-4">
@@ -1279,14 +1324,14 @@ const DiagnosticoFinanceiro = () => {
                 </div>
                 <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg text-center`}>
                   <span className={themeClasses.textSecondary}>CLD: </span>
-                  <span className={`font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-900'}`}>R$ {pulmao.cld}</span>
+                  <span className={`font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-900'}`}>R$ {pulmao.cld}</span>
                 </div>
               </div>
             )}
 
             <div className="flex justify-center mt-6">
               <button onClick={() => setStep(4)} disabled={comr <= 0}
-                className={`px-8 py-3 rounded-lg ${comr <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                className={`px-8 py-3 rounded-lg ${comr <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>
                 Próximo: Custos Financeiros →
               </button>
             </div>
@@ -1314,8 +1359,8 @@ const DiagnosticoFinanceiro = () => {
             <p className={`${themeClasses.textSecondary} mb-6`}>Analise taxas de vendas e custos bancários ocultos.</p>
 
             {/* Taxas de Vendas */}
-            <div className={`${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'} p-4 rounded-lg mb-6`}>
-              <h3 className={`font-semibold ${darkMode ? 'text-blue-300' : 'text-blue-800'} mb-4`}>💳 Taxas de Vendas (Cartão/Gateway)</h3>
+            <div className={`${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} p-4 rounded-lg mb-6`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-800'} mb-4`}>Taxas de Vendas (Cartão/Gateway)</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm ${themeClasses.text} mb-1`}>Receita Bruta (R$)</label>
@@ -1523,7 +1568,7 @@ const DiagnosticoFinanceiro = () => {
 
             {/* Taxas Ocultas Bancárias */}
             <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} p-4 rounded-lg mb-6`}>
-              <h3 className={`font-semibold ${darkMode ? 'text-red-300' : 'text-red-800'} mb-4`}>🏦 Taxas Ocultas Bancárias</h3>
+              <h3 className={`font-semibold ${darkMode ? 'text-red-300' : 'text-red-800'} mb-4`}>Taxas Ocultas Bancárias</h3>
               <div className="grid grid-cols-4 gap-3">
                 {[
                   { label: 'Tarifas', value: tarifasBancarias, setter: setTarifasBancarias },
@@ -1558,7 +1603,7 @@ const DiagnosticoFinanceiro = () => {
             </div>
 
             <div className="flex justify-center mt-6">
-              <button onClick={() => setStep(5)} className="px-8 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+              <button onClick={() => setStep(5)} className="px-8 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
                 Ver Resumo Final →
               </button>
             </div>
@@ -1608,11 +1653,11 @@ const DiagnosticoFinanceiro = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {/* Resumo do Caixa */}
                 <div className={`${themeClasses.highlight} rounded-lg p-6`}>
-                  <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>📊 Resumo do Caixa</h3>
+                  <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Resumo do Caixa</h3>
 
                   {/* Entradas separadas */}
                   <div className={`mb-4 p-3 rounded-lg ${darkMode ? 'bg-green-900/20' : 'bg-green-50'}`}>
-                    <p className={`text-sm font-semibold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-2`}>📥 Entradas</p>
+                    <p className={`text-sm font-semibold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-2`}>Entradas</p>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className={themeClasses.textSecondary}>Operacionais:</span>
@@ -1629,19 +1674,18 @@ const DiagnosticoFinanceiro = () => {
                     </div>
                     {resumo.percentualOperacional < 80 && resumo.entradas > 0 && (
                       <p className={`text-xs mt-2 ${darkMode ? 'text-yellow-300' : 'text-yellow-700'}`}>
-                        ⚠️ Apenas {resumo.percentualOperacional.toFixed(0)}% das entradas são operacionais
+                        Atenção: Apenas {resumo.percentualOperacional.toFixed(0)}% das entradas são operacionais
                       </p>
                     )}
                   </div>
 
-                  <PieChart data={dadosGrafico} darkMode={darkMode} />
-                  <div className="mt-4 space-y-2">
-                    <ProgressBar value={resumo.categorizado['OPERAÇÃO']} max={resumo.totalSaidas || 1} color="bg-indigo-500" label="Operação" darkMode={darkMode} />
-                    <ProgressBar value={resumo.categorizado['PRÓ-LABORE']} max={resumo.totalSaidas || 1} color="bg-amber-500" label="Pró-labore" darkMode={darkMode} />
-                    <ProgressBar value={resumo.categorizado['IMPOSTOS']} max={resumo.totalSaidas || 1} color="bg-emerald-500" label="Impostos" darkMode={darkMode} />
-                    <ProgressBar value={resumo.categorizado['DÍVIDAS']} max={resumo.totalSaidas || 1} color="bg-red-500" label="Dívidas" darkMode={darkMode} />
-                  </div>
-                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-indigo-900/30' : 'bg-indigo-50'} border-2 ${darkMode ? 'border-indigo-500' : 'border-indigo-200'}`}>
+                  <p className={`text-sm font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-3`}>Distribuição de Saídas</p>
+                  <HorizontalBarChart
+                    data={dadosGrafico}
+                    darkMode={darkMode}
+                    formatValue={(v) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`}
+                  />
+                  <div className={`mt-4 p-4 rounded-lg ${darkMode ? 'bg-emerald-900/30' : 'bg-emerald-50'} border-2 ${darkMode ? 'border-emerald-500' : 'border-emerald-300'}`}>
                     <div className="flex justify-between items-center">
                       <span className={`font-bold ${themeClasses.text}`}>Resultado:</span>
                       <span className={`text-xl font-bold ${resumo.resultado >= 0 ? 'text-green-500' : 'text-red-500'}`}>R$ {resumo.resultado.toFixed(2)}</span>
@@ -1651,10 +1695,10 @@ const DiagnosticoFinanceiro = () => {
 
                 {/* Pulmão + Custos */}
                 <div className="space-y-6">
-                  <div className={`${darkMode ? 'bg-indigo-900/20' : 'bg-indigo-50'} rounded-lg p-6`}>
-                    <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>🫁 Pulmão Financeiro</h3>
+                  <div className={`${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} rounded-lg p-6`}>
+                    <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Pulmão Financeiro</h3>
                     <div className="text-center">
-                      <p className={`text-5xl font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>{pulmao.dias}</p>
+                      <p className={`text-5xl font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-500'}`}>{pulmao.dias}</p>
                       <p className={themeClasses.textSecondary}>dias ({pulmao.meses} meses)</p>
                       <span className={`inline-block mt-3 px-4 py-2 rounded-full font-semibold ${
                         pulmao.cor === 'red' ? 'bg-red-100 text-red-800' : 
@@ -1665,7 +1709,7 @@ const DiagnosticoFinanceiro = () => {
 
                   {(receitaBruta > 0 || vendasMaquininha.length > 0) && (
                     <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} rounded-lg p-6`}>
-                      <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>💰 Custos Financeiros</h3>
+                      <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Custos Financeiros</h3>
                       <div className={`grid ${vendasMaquininha.length > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 text-center`}>
                         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
                           <p className={`text-xs ${themeClasses.textSecondary}`}>T1 Taxa</p>
@@ -1698,7 +1742,7 @@ const DiagnosticoFinanceiro = () => {
               {/* Anomalias */}
               {anomalias.length > 0 && (
                 <div className={`${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'} rounded-lg p-6 mb-8`}>
-                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-yellow-300' : 'text-yellow-900'} mb-4`}>⚠️ Anomalias ({anomalias.length})</h3>
+                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-yellow-300' : 'text-yellow-900'} mb-4`}>Anomalias ({anomalias.length})</h3>
                   <div className="space-y-3">
                     {anomalias.map((a, idx) => (
                       <div key={idx} className={`p-4 rounded-lg border-l-4 ${
@@ -1721,8 +1765,8 @@ const DiagnosticoFinanceiro = () => {
 
               {/* Recomendações */}
               {recomendacoes.length > 0 && (
-                <div className={`${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'} rounded-lg p-6 mb-8`}>
-                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-blue-300' : 'text-blue-900'} mb-4`}>📋 Recomendações</h3>
+                <div className={`${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} rounded-lg p-6 mb-8`}>
+                  <h3 className={`text-lg font-semibold ${darkMode ? 'text-emerald-300' : 'text-emerald-900'} mb-4`}>Recomendações</h3>
                   <div className="space-y-3">
                     {recomendacoes.map((rec, idx) => (
                       <div key={idx} className={`p-4 rounded-lg border-l-4 ${
@@ -1735,7 +1779,7 @@ const DiagnosticoFinanceiro = () => {
                           }`}>{rec.prioridade}</span>
                           <p className={`font-bold ${themeClasses.text} text-sm`}>{rec.titulo}</p>
                         </div>
-                        <p className={`text-xs ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'} p-2 rounded`}>🎯 {rec.acao}</p>
+                        <p className={`text-xs ${darkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700'} p-2 rounded`}>🎯 {rec.acao}</p>
                       </div>
                     ))}
                   </div>
