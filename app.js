@@ -186,14 +186,28 @@ const DiagnosticoFinanceiro = () => {
   const [iofBancario, setIofBancario] = useState(0);
   const [multasBancarias, setMultasBancarias] = useState(0);
   
-  // Campo para comparação: Banco > Dono
-  const [proLabore, setProLabore] = useState(0);
-  
+  // NOVOS CAMPOS: Maquininhas - Taxa Efetiva
+  const [vendasMaquininha, setVendasMaquininha] = useState([]);
+  const [novaVenda, setNovaVenda] = useState({
+    dataVenda: '', valorBruto: '', dataDeposito: '', valorRecebido: '', bandeira: 'Visa - Crédito'
+  });
+
+  // Campos de inputs diretos (Step 2 simplificado)
+  const [inputProLabore, setInputProLabore] = useState(0);
+  const [inputImpostos, setInputImpostos] = useState(0);
+  const [inputDividas, setInputDividas] = useState(0);
+  const [inputEntradasNaoOp, setInputEntradasNaoOp] = useState(0);
+  const [mostrarTransacoes, setMostrarTransacoes] = useState(false);
+
+  // Campo para comparação: Banco > Dono (usa inputProLabore)
+  const proLabore = inputProLabore;
+
   const [nomeEmpresa, setNomeEmpresa] = useState('');
   const [mesReferencia, setMesReferencia] = useState('');
 
-  const categoriasSaida = ['OPERAÇÃO', 'PRÓ-LABORE', 'IMPOSTOS', 'DÍVIDAS'];
-  const categoriasEntrada = ['OPERACIONAL', 'NÃO OPERACIONAL'];
+  // Calculados automaticamente do extrato
+  const totalEntradas = classificadas.filter(m => m.valor >= 0).reduce((acc, m) => acc + m.valor, 0);
+  const totalSaidas = Math.abs(classificadas.filter(m => m.valor < 0).reduce((acc, m) => acc + m.valor, 0));
 
   // Persistir tema
   useEffect(() => {
@@ -223,6 +237,134 @@ const DiagnosticoFinanceiro = () => {
     infoText: darkMode ? 'text-blue-300' : 'text-blue-800',
   };
 
+  // ============ SISTEMA DE DETECÇÃO AUTOMÁTICA DE COLUNAS ============
+
+  // Converte valor brasileiro "4.200,00" ou "-25,00" para número
+  const parseValorBR = (valor) => {
+    if (valor === null || valor === undefined || valor === '') return 0;
+    // Se já for número, retorna direto
+    if (typeof valor === 'number') return valor;
+    const str = String(valor)
+      .replace(/[R$\s]/g, '')      // Remove R$ e espaços
+      .replace(/\./g, '')          // Remove pontos (separador de milhar)
+      .replace(',', '.');          // Vírgula -> ponto decimal
+    return parseFloat(str) || 0;
+  };
+
+  // Detecta se uma string é um valor monetário
+  const isValorMonetario = (valor) => {
+    if (valor === null || valor === undefined) return false;
+    if (typeof valor === 'number') return true;
+    const str = String(valor).trim();
+    if (!str) return false;
+    // Padrões: 1234.56, 1.234,56, -25,00, R$ 100,00, 1234, -1.000,00
+    return /^-?\s*R?\$?\s*\d{1,3}([.,]\d{3})*([.,]\d{1,2})?$/.test(str) ||
+           /^-?\d+([.,]\d{1,2})?$/.test(str) ||
+           /^-?\d{1,3}(\.\d{3})*(,\d{2})?$/.test(str);
+  };
+
+  // Detecta se uma string é uma data válida
+  const isData = (valor) => {
+    if (!valor) return false;
+    const str = String(valor).trim();
+    // DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, YYYY/MM/DD
+    return /^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(str) ||
+           /^\d{4}[\/\-]\d{2}[\/\-]\d{2}$/.test(str);
+  };
+
+  // Detecta se é uma linha de saldo/cabeçalho que deve ser ignorada
+  const isLinhaIgnoravel = (texto) => {
+    if (!texto) return false;
+    const str = String(texto).toLowerCase();
+    const ignorar = ['saldo anterior', 'saldo do dia', 'saldo final', 'saldo inicial',
+                     'total', 'subtotal', 'resumo', 'header', 'cabeçalho'];
+    return ignorar.some(s => str.includes(s));
+  };
+
+  // Lista de nomes conhecidos para fallback
+  const NOMES_VALOR = ['valor', 'value', 'amount', 'vlr', 'quantia', 'montante', 'total', 'débito', 'debito', 'crédito', 'credito'];
+  const NOMES_DATA = ['data', 'date', 'dt', 'data mov', 'data movimento', 'data lançamento', 'data lancamento', 'dt lancamento', 'dt lanc'];
+  const NOMES_DESCRICAO = ['descrição', 'descricao', 'description', 'desc', 'histórico', 'historico', 'lançamento', 'lancamento', 'memo', 'detalhe', 'detalhes', 'observação', 'observacao', 'obs'];
+
+  // Detecta automaticamente as colunas do extrato
+  const detectarColunas = (jsonData) => {
+    if (!jsonData || jsonData.length === 0) return { colunaValor: null, colunaData: null, colunasDescricao: [] };
+
+    const colunas = Object.keys(jsonData[0] || {});
+    const amostra = jsonData.slice(0, Math.min(30, jsonData.length));
+
+    let colunaValor = null;
+    let colunaData = null;
+    let colunasDescricao = [];
+
+    // PRIORIDADE 1: Busca por nome da coluna (mais confiável)
+    colunaValor = colunas.find(col => NOMES_VALOR.some(n => col.toLowerCase().includes(n)));
+    colunaData = colunas.find(col => NOMES_DATA.some(n => col.toLowerCase() === n || col.toLowerCase().startsWith(n)));
+
+    // PRIORIDADE 2: Se não encontrou por nome, detecta por padrão dos dados
+    if (!colunaValor || !colunaData) {
+      let melhorScoreValor = 0;
+      let melhorScoreData = 0;
+
+      for (const col of colunas) {
+        const valores = amostra.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
+        if (valores.length === 0) continue;
+
+        // Para VALOR: prioriza colunas que têm números negativos (típico de extrato)
+        const temNegativos = valores.some(v => String(v).includes('-'));
+        const temDecimais = valores.some(v => String(v).includes(',') || (typeof v === 'number' && v % 1 !== 0));
+        const matchValor = valores.filter(v => isValorMonetario(v)).length;
+        const percentValor = matchValor / valores.length;
+        // Score maior se tem negativos E decimais (características de extrato)
+        const scoreValor = percentValor + (temNegativos ? 0.3 : 0) + (temDecimais ? 0.2 : 0);
+
+        // Para DATA: percentual simples
+        const matchData = valores.filter(v => isData(v)).length;
+        const percentData = matchData / valores.length;
+
+        // Seleciona coluna de valor (se ainda não encontrou por nome)
+        if (!colunaValor && percentValor > 0.6 && scoreValor > melhorScoreValor) {
+          melhorScoreValor = scoreValor;
+          colunaValor = col;
+        }
+
+        // Seleciona coluna de data (se ainda não encontrou por nome)
+        if (!colunaData && percentData > 0.6 && percentData > melhorScoreData) {
+          melhorScoreData = percentData;
+          colunaData = col;
+        }
+      }
+    }
+
+    // Fallback final por nome se ainda não detectou
+    if (!colunaValor) {
+      colunaValor = colunas.find(col => NOMES_VALOR.some(n => col.toLowerCase().includes(n)));
+    }
+    if (!colunaData) {
+      colunaData = colunas.find(col => NOMES_DATA.some(n => col.toLowerCase().includes(n)));
+    }
+
+    // Colunas de descrição = todas as outras colunas de texto (exceto valor e data)
+    for (const col of colunas) {
+      if (col === colunaValor || col === colunaData) continue;
+      const valores = amostra.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
+      // Se a maioria é texto (não é valor nem data), considera como descrição
+      const isTexto = valores.filter(v => !isValorMonetario(v) && !isData(v) && String(v).length > 2).length;
+      if (isTexto / valores.length > 0.5) {
+        colunasDescricao.push(col);
+      }
+    }
+
+    // Fallback por nome se não encontrou descrição
+    if (colunasDescricao.length === 0) {
+      const descFallback = colunas.find(col => NOMES_DESCRICAO.some(n => col.toLowerCase().includes(n)));
+      if (descFallback) colunasDescricao.push(descFallback);
+    }
+
+    console.log('Colunas detectadas:', { colunaValor, colunaData, colunasDescricao });
+    return { colunaValor, colunaData, colunasDescricao };
+  };
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -235,17 +377,41 @@ const DiagnosticoFinanceiro = () => {
       const sheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-      const processadas = jsonData.map((row, idx) => {
-        const valor = parseFloat(row.Valor || row.valor || 0);
-        return {
-          id: idx,
-          data: row.Data || row.data || '',
-          descricao: row.Descrição || row.Descricao || row.descricao || '',
-          valor: valor,
-          tipo: valor >= 0 ? 'Entrada' : 'Saída',
-          categoria: ''
-        };
-      });
+      // Detecta automaticamente as colunas
+      const { colunaValor, colunaData, colunasDescricao } = detectarColunas(jsonData);
+
+      const processadas = jsonData
+        .filter(row => {
+          // Ignora linhas sem valor ou com data inválida
+          const valor = colunaValor ? row[colunaValor] : null;
+          const dataVal = colunaData ? row[colunaData] : null;
+          // Ignora linhas de saldo
+          const textoLinha = colunasDescricao.map(col => row[col]).join(' ');
+          if (isLinhaIgnoravel(textoLinha)) return false;
+          // Ignora datas inválidas
+          if (dataVal === '00/00/0000' || (!dataVal && colunaData)) return false;
+          // Ignora se não tem valor
+          if (valor === null || valor === undefined || valor === '') return false;
+          return true;
+        })
+        .map((row, idx) => {
+          const valor = parseValorBR(colunaValor ? row[colunaValor] : 0);
+          // Junta todas as colunas de descrição
+          const descricao = colunasDescricao
+            .map(col => row[col])
+            .filter(v => v && String(v).trim())
+            .join(' - ')
+            .trim() || 'Sem descrição';
+
+          return {
+            id: idx,
+            data: colunaData ? row[colunaData] : '',
+            descricao: descricao,
+            valor: valor,
+            tipo: valor >= 0 ? 'Entrada' : 'Saída',
+            categoria: ''
+          };
+        });
 
       setMovimentacoes(processadas);
       setClassificadas(processadas);
@@ -254,33 +420,27 @@ const DiagnosticoFinanceiro = () => {
     reader.readAsBinaryString(file);
   };
 
-  const updateCategoria = (id, categoria) => {
-    setClassificadas(prev => prev.map(mov => mov.id === id ? { ...mov, categoria } : mov));
-  };
-
   const calcularResumo = () => {
-    // Entradas separadas por tipo
-    const entradasOperacionais = classificadas
-      .filter(m => m.tipo === 'Entrada' && m.categoria === 'OPERACIONAL')
-      .reduce((acc, m) => acc + m.valor, 0);
-    const entradasNaoOperacionais = classificadas
-      .filter(m => m.tipo === 'Entrada' && m.categoria === 'NÃO OPERACIONAL')
-      .reduce((acc, m) => acc + m.valor, 0);
-    const entradas = entradasOperacionais + entradasNaoOperacionais;
+    // Entradas: total do extrato menos as não operacionais informadas
+    const entradas = totalEntradas;
+    const entradasOperacionais = totalEntradas - inputEntradasNaoOp;
+    const entradasNaoOperacionais = inputEntradasNaoOp;
 
     // Percentual de entradas operacionais
     const percentualOperacional = entradas > 0 ? (entradasOperacionais / entradas) * 100 : 0;
 
-    const categorizado = { 'OPERAÇÃO': 0, 'PRÓ-LABORE': 0, 'IMPOSTOS': 0, 'DÍVIDAS': 0 };
+    // Saídas: usa os inputs diretos, o resto é operacional
+    const saidasOperacionais = Math.max(0, totalSaidas - inputProLabore - inputImpostos - inputDividas);
 
-    classificadas.filter(m => m.tipo === 'Saída').forEach(m => {
-      if (m.categoria && categorizado[m.categoria] !== undefined) {
-        categorizado[m.categoria] += Math.abs(m.valor);
-      }
-    });
+    const categorizado = {
+      'OPERAÇÃO': saidasOperacionais,
+      'PRÓ-LABORE': inputProLabore,
+      'IMPOSTOS': inputImpostos,
+      'DÍVIDAS': inputDividas
+    };
 
-    const totalSaidas = Object.values(categorizado).reduce((a, b) => a + b, 0);
-    const resultado = entradas - totalSaidas;
+    const totalSaidasCalc = Object.values(categorizado).reduce((a, b) => a + b, 0);
+    const resultado = entradas - totalSaidasCalc;
 
     return {
       entradas,
@@ -288,7 +448,7 @@ const DiagnosticoFinanceiro = () => {
       entradasNaoOperacionais,
       percentualOperacional,
       categorizado,
-      totalSaidas,
+      totalSaidas: totalSaidasCalc,
       resultado
     };
   };
@@ -342,6 +502,96 @@ const DiagnosticoFinanceiro = () => {
       bancoMaiorQueDono,
       bancoMaiorQueLucro
     };
+  };
+
+  // CÁLCULO: Taxa Efetiva das Maquininhas
+  const calcularTaxaEfetiva = () => {
+    if (vendasMaquininha.length === 0) return { vendas: [], mediaEfetiva: 0, diasMedio: 0, porBandeira: {} };
+
+    let somaValorBruto = 0;
+    let somaDiferenca = 0;
+    let somaDias = 0;
+    const porBandeira = {};
+
+    const vendas = vendasMaquininha.map(v => {
+      const taxaEfetiva = v.valorBruto > 0 ? ((v.valorBruto - v.valorRecebido) / v.valorBruto) * 100 : 0;
+      const d1 = new Date(v.dataVenda);
+      const d2 = new Date(v.dataDeposito);
+      const diasReceber = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+
+      somaValorBruto += v.valorBruto;
+      somaDiferenca += (v.valorBruto - v.valorRecebido);
+      somaDias += diasReceber;
+
+      if (!porBandeira[v.bandeira]) {
+        porBandeira[v.bandeira] = { totalBruto: 0, totalRecebido: 0, count: 0, diasTotal: 0 };
+      }
+      porBandeira[v.bandeira].totalBruto += v.valorBruto;
+      porBandeira[v.bandeira].totalRecebido += v.valorRecebido;
+      porBandeira[v.bandeira].count += 1;
+      porBandeira[v.bandeira].diasTotal += diasReceber;
+
+      return { ...v, taxaEfetiva: taxaEfetiva.toFixed(2), diasReceber };
+    });
+
+    Object.keys(porBandeira).forEach(b => {
+      const d = porBandeira[b];
+      d.taxaMedia = d.totalBruto > 0 ? (((d.totalBruto - d.totalRecebido) / d.totalBruto) * 100).toFixed(2) : '0.00';
+      d.diasMedio = d.count > 0 ? Math.round(d.diasTotal / d.count) : 0;
+    });
+
+    const mediaEfetiva = somaValorBruto > 0 ? ((somaDiferenca / somaValorBruto) * 100).toFixed(2) : '0.00';
+    const diasMedio = vendasMaquininha.length > 0 ? Math.round(somaDias / vendasMaquininha.length) : 0;
+
+    // Var taxa: contar variações de taxa no trimestre
+    const vendasOrdenadas = [...vendas].sort((a, b) => new Date(a.dataVenda) - new Date(b.dataVenda));
+    let variacoes = 0;
+    for (let i = 1; i < vendasOrdenadas.length; i++) {
+      if (vendasOrdenadas[i].taxaEfetiva !== vendasOrdenadas[i - 1].taxaEfetiva) {
+        variacoes++;
+      }
+    }
+
+    // Taxa média por trimestre
+    const porTrimestre = {};
+    vendas.forEach(v => {
+      const data = new Date(v.dataVenda);
+      const trimestre = `${data.getFullYear()}-T${Math.ceil((data.getMonth() + 1) / 3)}`;
+      if (!porTrimestre[trimestre]) {
+        porTrimestre[trimestre] = { totalBruto: 0, totalRecebido: 0, count: 0, taxas: [] };
+      }
+      porTrimestre[trimestre].totalBruto += v.valorBruto;
+      porTrimestre[trimestre].totalRecebido += v.valorRecebido;
+      porTrimestre[trimestre].count += 1;
+      porTrimestre[trimestre].taxas.push(parseFloat(v.taxaEfetiva));
+    });
+
+    Object.keys(porTrimestre).forEach(t => {
+      const d = porTrimestre[t];
+      d.taxaMedia = d.totalBruto > 0 ? (((d.totalBruto - d.totalRecebido) / d.totalBruto) * 100).toFixed(2) : '0.00';
+      // Variações dentro do trimestre
+      let varTrimestre = 0;
+      for (let i = 1; i < d.taxas.length; i++) {
+        if (d.taxas[i] !== d.taxas[i - 1]) varTrimestre++;
+      }
+      d.variacoes = varTrimestre;
+    });
+
+    return { vendas, mediaEfetiva, diasMedio, porBandeira, variacoes, porTrimestre };
+  };
+
+  const adicionarVendaMaquininha = () => {
+    if (!novaVenda.dataVenda || !novaVenda.valorBruto || !novaVenda.dataDeposito || !novaVenda.valorRecebido) return;
+    setVendasMaquininha([...vendasMaquininha, {
+      ...novaVenda,
+      valorBruto: parseFloat(novaVenda.valorBruto),
+      valorRecebido: parseFloat(novaVenda.valorRecebido)
+    }]);
+    setNovaVenda({ dataVenda: '', valorBruto: '', dataDeposito: '', valorRecebido: '', bandeira: 'Visa - Crédito' });
+  };
+
+  const removerVendaMaquininha = (index) => {
+    setVendasMaquininha(vendasMaquininha.filter((_, i) => i !== index));
   };
 
   const detectarAnomalias = () => {
@@ -421,6 +671,18 @@ const DiagnosticoFinanceiro = () => {
       });
     }
 
+    // T4 - Taxa efetiva maquininha elevada
+    const taxaEfetiva = calcularTaxaEfetiva();
+    if (vendasMaquininha.length > 0 && parseFloat(taxaEfetiva.mediaEfetiva) > 5) {
+      anomalias.push({
+        codigo: 'T4', titulo: 'Taxa efetiva de maquininha elevada',
+        descricao: 'A taxa efetiva real (incluindo custo do tempo) está acima de 5%.',
+        criticidade: parseFloat(taxaEfetiva.mediaEfetiva) > 8 ? 'ALTA' : 'MÉDIA',
+        impacto: `${taxaEfetiva.mediaEfetiva}% de taxa efetiva | ${taxaEfetiva.diasMedio} dias para receber`,
+        recomendacao: 'Renegocie com a operadora. Compare com outras maquininhas. Avalie se a antecipação está embutida na taxa.'
+      });
+    }
+
     // Banco > Dono
     if (custos.bancoMaiorQueDono && proLabore > 0) {
       anomalias.push({
@@ -497,7 +759,16 @@ const DiagnosticoFinanceiro = () => {
       pulmao: parseFloat(pulmao.dias) >= 60 ? 'good' : parseFloat(pulmao.dias) >= 30 ? 'warning' : 'danger',
       resultado: resumo.resultado > 0 ? 'good' : resumo.resultado === 0 ? 'warning' : 'danger',
       anomalias: anomalias.length === 0 ? 'good' : anomalias.some(a => a.criticidade === 'ALTA') ? 'danger' : 'warning',
-      custos: parseFloat(custos.t3.percentual) <= 3 ? 'good' : parseFloat(custos.t3.percentual) <= 6 ? 'warning' : 'danger'
+      custos: (() => {
+        const te = calcularTaxaEfetiva();
+        const t3Ruim = parseFloat(custos.t3.percentual) > 6;
+        const t3Medio = parseFloat(custos.t3.percentual) > 3;
+        const teRuim = vendasMaquininha.length > 0 && parseFloat(te.mediaEfetiva) > 8;
+        const teMedio = vendasMaquininha.length > 0 && parseFloat(te.mediaEfetiva) > 5;
+        if (t3Ruim || teRuim) return 'danger';
+        if (t3Medio || teMedio) return 'warning';
+        return 'good';
+      })()
     };
   };
 
@@ -640,10 +911,10 @@ const DiagnosticoFinanceiro = () => {
           <span class="badge ${pulmao.cor}">${pulmao.classificacao}</span>
           <p style="font-size: 11px; color: #6B7280; margin-top: 12px;">CLD: R$ ${pulmao.cld}</p>
         </div>
-        ${receitaBruta > 0 ? `
+        ${receitaBruta > 0 || vendasMaquininha.length > 0 ? `
         <div style="margin-top: 15px;">
           <div class="card-title">Custos Financeiros</div>
-          <div class="custos-grid">
+          <div class="custos-grid" style="${vendasMaquininha.length > 0 ? 'grid-template-columns: repeat(4, 1fr);' : ''}">
             <div class="custo-card">
               <p>T1 - Taxa Vendas</p>
               <p class="${parseFloat(custos.t1.taxa) > 5 ? 'red' : 'green'}">${custos.t1.taxa}%</p>
@@ -656,6 +927,13 @@ const DiagnosticoFinanceiro = () => {
               <p>T3 - Custos Ocultos</p>
               <p class="${parseFloat(custos.t3.percentual) > 3 ? 'red' : 'green'}">R$ ${custos.t3.total}</p>
             </div>
+            ${vendasMaquininha.length > 0 ? `
+            <div class="custo-card">
+              <p>T4 - Taxa Efetiva</p>
+              <p class="${parseFloat(calcularTaxaEfetiva().mediaEfetiva) > 5 ? 'red' : 'green'}">${calcularTaxaEfetiva().mediaEfetiva}%</p>
+              <p style="font-size: 9px; color: #6B7280;">${calcularTaxaEfetiva().diasMedio}d médio</p>
+            </div>
+            ` : ''}
           </div>
         </div>
         ` : ''}
@@ -773,92 +1051,161 @@ const DiagnosticoFinanceiro = () => {
   // STEP 2: Classificação
   // ============================================
   if (step === 2) {
-    const saidasNaoClassificadas = classificadas.filter(m => !m.categoria && m.tipo === 'Saída').length;
-    const entradasNaoClassificadas = classificadas.filter(m => !m.categoria && m.tipo === 'Entrada').length;
-    const totalNaoClassificadas = saidasNaoClassificadas + entradasNaoClassificadas;
+    const saldoPeriodo = totalEntradas - totalSaidas;
+    const somaInputsSaidas = inputProLabore + inputImpostos + inputDividas;
+    const erroSomaExcede = somaInputsSaidas > totalSaidas;
+    const erroEntradasExcede = inputEntradasNaoOp > totalEntradas;
 
     return (
       <div className={`min-h-screen ${themeClasses.bg} p-8`}>
         <ThemeToggle darkMode={darkMode} setDarkMode={setDarkMode} />
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className={`${themeClasses.card} rounded-xl shadow-lg p-8`}>
-            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 2: Classificar Movimentações</h2>
-            <p className={`${themeClasses.textSecondary} mb-6`}>Classifique todas as movimentações (entradas e saídas).</p>
+            <h2 className={`text-2xl font-bold ${themeClasses.text} mb-2`}>Passo 2: Resumo do Extrato</h2>
+            <p className={`${themeClasses.textSecondary} mb-6`}>Confira o resumo automático e informe os valores específicos do mês.</p>
 
-            <div className={`mb-6 flex justify-between items-center ${themeClasses.highlight} p-4 rounded-lg`}>
-              <div className={`text-sm ${themeClasses.textSecondary}`}>
-                Total: <span className="font-bold">{classificadas.length}</span> |
-                Entradas pendentes: <span className={`font-bold ${entradasNaoClassificadas > 0 ? 'text-yellow-500' : 'text-green-500'}`}>{entradasNaoClassificadas}</span> |
-                Saídas pendentes: <span className={`font-bold ${saidasNaoClassificadas > 0 ? 'text-red-500' : 'text-green-500'}`}>{saidasNaoClassificadas}</span>
+            {/* Resumo Automático */}
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className={`${themeClasses.highlight} p-6 rounded-xl text-center`}>
+                <p className={`text-sm ${themeClasses.textSecondary} mb-1`}>Total Entradas</p>
+                <p className="text-2xl font-bold text-green-500">R$ {totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>{classificadas.filter(m => m.valor >= 0).length} transações</p>
               </div>
-              <button onClick={() => setStep(3)} disabled={totalNaoClassificadas > 0}
-                className={`px-6 py-2 rounded-lg transition ${totalNaoClassificadas > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+              <div className={`${themeClasses.highlight} p-6 rounded-xl text-center`}>
+                <p className={`text-sm ${themeClasses.textSecondary} mb-1`}>Total Saídas</p>
+                <p className="text-2xl font-bold text-red-500">R$ {totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
+                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>{classificadas.filter(m => m.valor < 0).length} transações</p>
+              </div>
+              <div className={`${themeClasses.highlight} p-6 rounded-xl text-center`}>
+                <p className={`text-sm ${themeClasses.textSecondary} mb-1`}>Saldo do Período</p>
+                <p className={`text-2xl font-bold ${saldoPeriodo >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  R$ {saldoPeriodo.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                </p>
+                <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>{classificadas.length} transações total</p>
+              </div>
+            </div>
+
+            {/* Formulário de Inputs */}
+            <div className={`${darkMode ? 'bg-gray-700/50' : 'bg-indigo-50'} p-6 rounded-xl mb-6`}>
+              <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Informe os valores específicos do mês</h3>
+              <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
+                Estes valores serão separados das saídas operacionais para o diagnóstico.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Pró-labore (retirada dos sócios)</label>
+                  <div className="relative">
+                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${themeClasses.textSecondary}`}>R$</span>
+                    <input type="number" value={inputProLabore || ''} onChange={(e) => setInputProLabore(parseFloat(e.target.value) || 0)}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg ${themeClasses.input}`} placeholder="0,00" />
+                  </div>
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Impostos pagos no mês</label>
+                  <div className="relative">
+                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${themeClasses.textSecondary}`}>R$</span>
+                    <input type="number" value={inputImpostos || ''} onChange={(e) => setInputImpostos(parseFloat(e.target.value) || 0)}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg ${themeClasses.input}`} placeholder="0,00" />
+                  </div>
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Parcelas de dívidas/financiamentos</label>
+                  <div className="relative">
+                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${themeClasses.textSecondary}`}>R$</span>
+                    <input type="number" value={inputDividas || ''} onChange={(e) => setInputDividas(parseFloat(e.target.value) || 0)}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg ${themeClasses.input}`} placeholder="0,00" />
+                  </div>
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>Entradas não operacionais (opcional)</label>
+                  <div className="relative">
+                    <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${themeClasses.textSecondary}`}>R$</span>
+                    <input type="number" value={inputEntradasNaoOp || ''} onChange={(e) => setInputEntradasNaoOp(parseFloat(e.target.value) || 0)}
+                      className={`w-full pl-10 pr-4 py-3 border rounded-lg ${themeClasses.input}`} placeholder="0,00" />
+                  </div>
+                  <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Ex: empréstimos recebidos, venda de ativos, aportes</p>
+                </div>
+              </div>
+
+              {/* Validações */}
+              {erroSomaExcede && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 rounded-lg">
+                  <p className="text-sm text-red-700">
+                    A soma de Pró-labore + Impostos + Dívidas (R$ {somaInputsSaidas.toLocaleString('pt-BR', {minimumFractionDigits: 2})})
+                    não pode exceder o total de saídas (R$ {totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).
+                  </p>
+                </div>
+              )}
+              {erroEntradasExcede && (
+                <div className="mt-4 p-3 bg-red-100 border border-red-400 rounded-lg">
+                  <p className="text-sm text-red-700">
+                    Entradas não operacionais não pode exceder o total de entradas.
+                  </p>
+                </div>
+              )}
+
+              {/* Cálculo automático das saídas operacionais */}
+              {!erroSomaExcede && (
+                <div className={`mt-4 p-3 ${darkMode ? 'bg-gray-600' : 'bg-white'} rounded-lg`}>
+                  <p className={`text-sm ${themeClasses.text}`}>
+                    <strong>Saídas Operacionais (calculado):</strong> R$ {Math.max(0, totalSaidas - somaInputsSaidas).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                  </p>
+                  <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                    = Total Saídas - Pró-labore - Impostos - Dívidas
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Botão para ver transações */}
+            <div className="mb-6">
+              <button onClick={() => setMostrarTransacoes(!mostrarTransacoes)}
+                className={`w-full py-3 px-4 rounded-lg border ${themeClasses.border} ${themeClasses.text} hover:opacity-80 transition flex items-center justify-center gap-2`}>
+                {mostrarTransacoes ? '▲ Ocultar' : '▼ Ver'} todas as {classificadas.length} transações
+              </button>
+
+              {mostrarTransacoes && (
+                <div className={`mt-4 max-h-96 overflow-y-auto rounded-lg border ${themeClasses.border}`}>
+                  <table className="w-full">
+                    <thead className={`${themeClasses.table} sticky top-0`}>
+                      <tr>
+                        <th className={`px-4 py-2 text-left text-xs font-semibold ${themeClasses.text}`}>Data</th>
+                        <th className={`px-4 py-2 text-left text-xs font-semibold ${themeClasses.text}`}>Descrição</th>
+                        <th className={`px-4 py-2 text-right text-xs font-semibold ${themeClasses.text}`}>Valor</th>
+                        <th className={`px-4 py-2 text-center text-xs font-semibold ${themeClasses.text}`}>Tipo</th>
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${themeClasses.border}`}>
+                      {classificadas.map((mov) => (
+                        <tr key={mov.id} className={themeClasses.tableRow}>
+                          <td className={`px-4 py-2 text-sm ${themeClasses.text}`}>{mov.data}</td>
+                          <td className={`px-4 py-2 text-sm ${themeClasses.text}`}>{mov.descricao}</td>
+                          <td className={`px-4 py-2 text-sm text-right font-medium ${mov.tipo === 'Entrada' ? 'text-green-500' : 'text-red-500'}`}>
+                            R$ {Math.abs(mov.valor).toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`px-2 py-1 text-xs rounded ${mov.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                              {mov.tipo}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Navegação */}
+            <div className="flex gap-4">
+              <button onClick={() => setStep(1)} className={`flex-1 ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} px-6 py-3 rounded-lg transition`}>
+                ← Voltar
+              </button>
+              <button onClick={() => setStep(3)} disabled={erroSomaExcede || erroEntradasExcede}
+                className={`flex-1 px-6 py-3 rounded-lg transition ${erroSomaExcede || erroEntradasExcede ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                 Próximo →
               </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className={themeClasses.table}>
-                  <tr>
-                    <th className={`px-4 py-3 text-left text-xs font-semibold ${themeClasses.text}`}>Data</th>
-                    <th className={`px-4 py-3 text-left text-xs font-semibold ${themeClasses.text}`}>Descrição</th>
-                    <th className={`px-4 py-3 text-right text-xs font-semibold ${themeClasses.text}`}>Valor</th>
-                    <th className={`px-4 py-3 text-center text-xs font-semibold ${themeClasses.text}`}>Tipo</th>
-                    <th className={`px-4 py-3 text-left text-xs font-semibold ${themeClasses.text}`}>Categoria</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${themeClasses.border}`}>
-                  {classificadas.map((mov) => (
-                    <tr key={mov.id} className={themeClasses.tableRow}>
-                      <td className={`px-4 py-3 text-sm ${themeClasses.text}`}>{mov.data}</td>
-                      <td className={`px-4 py-3 text-sm ${themeClasses.text}`}>{mov.descricao}</td>
-                      <td className={`px-4 py-3 text-sm text-right font-medium ${mov.tipo === 'Entrada' ? 'text-green-500' : 'text-red-500'}`}>
-                        R$ {Math.abs(mov.valor).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-1 text-xs rounded ${mov.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {mov.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {mov.tipo === 'Saída' ? (
-                          <select value={mov.categoria} onChange={(e) => updateCategoria(mov.id, e.target.value)}
-                            className={`w-full px-3 py-2 border rounded text-sm ${themeClasses.input} ${!mov.categoria ? 'border-red-400' : ''}`}>
-                            <option value="">Selecione...</option>
-                            {categoriasSaida.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                          </select>
-                        ) : (
-                          <select value={mov.categoria} onChange={(e) => updateCategoria(mov.id, e.target.value)}
-                            className={`w-full px-3 py-2 border rounded text-sm ${themeClasses.input} ${!mov.categoria ? 'border-yellow-400' : 'border-green-400'}`}>
-                            <option value="">Selecione...</option>
-                            {categoriasEntrada.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                          </select>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className={`mt-6 grid grid-cols-2 gap-4`}>
-              <div className={`${themeClasses.info} border-l-4 p-4 rounded-r-lg`}>
-                <p className={`text-sm ${themeClasses.infoText} font-semibold mb-2`}>📥 Classificação de ENTRADAS:</p>
-                <ul className={`text-xs ${themeClasses.infoText} space-y-1`}>
-                  <li><strong>OPERACIONAL:</strong> Receitas recorrentes do negócio (vendas, serviços)</li>
-                  <li><strong>NÃO OPERACIONAL:</strong> Receitas não recorrentes (venda de ativo, empréstimo recebido, aporte)</li>
-                </ul>
-              </div>
-              <div className={`${themeClasses.warning} border-l-4 p-4 rounded-r-lg`}>
-                <p className={`text-sm ${themeClasses.warningText} font-semibold mb-2`}>📤 Classificação de SAÍDAS:</p>
-                <ul className={`text-xs ${themeClasses.warningText} space-y-1`}>
-                  <li><strong>OPERAÇÃO:</strong> Despesas para a empresa funcionar</li>
-                  <li><strong>PRÓ-LABORE:</strong> Dinheiro que foi para o dono ou família</li>
-                  <li><strong>IMPOSTOS:</strong> Pagamentos ao governo</li>
-                  <li><strong>DÍVIDAS:</strong> Empréstimos e financiamentos</li>
-                </ul>
-              </div>
             </div>
           </div>
         </div>
@@ -990,6 +1337,179 @@ const DiagnosticoFinanceiro = () => {
               )}
             </div>
 
+            {/* Maquininhas - Taxa Efetiva */}
+            <div className={`${darkMode ? 'bg-green-900/20' : 'bg-green-50'} p-4 rounded-lg mb-6`}>
+              <h3 className={`font-semibold ${darkMode ? 'text-green-300' : 'text-green-800'} mb-4`}>📱 Maquininhas - Taxa Efetiva</h3>
+              <p className={`text-xs ${themeClasses.textSecondary} mb-4`}>
+                Adicione cada venda para calcular a taxa efetiva real (incluindo custo do tempo de recebimento).
+              </p>
+
+              {/* Formulário de nova venda */}
+              <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg mb-4`}>
+                <div className="grid grid-cols-5 gap-2 mb-2">
+                  <div>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>Data Venda</label>
+                    <input type="date" value={novaVenda.dataVenda} onChange={(e) => setNovaVenda({...novaVenda, dataVenda: e.target.value})}
+                      className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>Valor Bruto (R$)</label>
+                    <input type="number" value={novaVenda.valorBruto} onChange={(e) => setNovaVenda({...novaVenda, valorBruto: e.target.value})}
+                      className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input}`} placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>Data Depósito</label>
+                    <input type="date" value={novaVenda.dataDeposito} onChange={(e) => setNovaVenda({...novaVenda, dataDeposito: e.target.value})}
+                      className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input}`} />
+                  </div>
+                  <div>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>Valor Recebido (R$)</label>
+                    <input type="number" value={novaVenda.valorRecebido} onChange={(e) => setNovaVenda({...novaVenda, valorRecebido: e.target.value})}
+                      className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input}`} placeholder="0.00" />
+                  </div>
+                  <div>
+                    <label className={`block text-xs ${themeClasses.text} mb-1`}>Bandeira</label>
+                    <select value={novaVenda.bandeira} onChange={(e) => setNovaVenda({...novaVenda, bandeira: e.target.value})}
+                      className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input}`}>
+                      <option>Visa - Crédito</option>
+                      <option>Visa - Débito</option>
+                      <option>Mastercard - Crédito</option>
+                      <option>Mastercard - Débito</option>
+                      <option>Elo - Crédito</option>
+                      <option>Elo - Débito</option>
+                      <option>Maestro - Crédito</option>
+                      <option>Visa Electron - Débito</option>
+                      <option>Outro</option>
+                    </select>
+                  </div>
+                </div>
+                <button onClick={adicionarVendaMaquininha}
+                  className="bg-green-600 text-white px-4 py-1.5 rounded text-xs hover:bg-green-700 transition">
+                  + Adicionar Venda
+                </button>
+              </div>
+
+              {/* Tabela de vendas */}
+              {vendasMaquininha.length > 0 && (() => {
+                const resultado = calcularTaxaEfetiva();
+                return (
+                  <div>
+                    <div className="overflow-x-auto mb-4">
+                      <table className={`w-full text-xs ${themeClasses.text}`}>
+                        <thead>
+                          <tr className={`${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                            <th className="px-2 py-1 text-left">Data Venda</th>
+                            <th className="px-2 py-1 text-right">Bruto</th>
+                            <th className="px-2 py-1 text-left">Data Depósito</th>
+                            <th className="px-2 py-1 text-right">Recebido</th>
+                            <th className="px-2 py-1 text-left">Bandeira</th>
+                            <th className="px-2 py-1 text-center">Dias</th>
+                            <th className="px-2 py-1 text-right">Taxa Efetiva</th>
+                            <th className="px-2 py-1 text-center">-</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {resultado.vendas.map((v, idx) => (
+                            <tr key={idx} className={`border-t ${themeClasses.border}`}>
+                              <td className="px-2 py-1">{new Date(v.dataVenda + 'T00:00').toLocaleDateString('pt-BR')}</td>
+                              <td className="px-2 py-1 text-right">R$ {v.valorBruto.toFixed(2)}</td>
+                              <td className="px-2 py-1">{new Date(v.dataDeposito + 'T00:00').toLocaleDateString('pt-BR')}</td>
+                              <td className="px-2 py-1 text-right">R$ {v.valorRecebido.toFixed(2)}</td>
+                              <td className="px-2 py-1">{v.bandeira}</td>
+                              <td className={`px-2 py-1 text-center ${v.diasReceber > 30 ? 'text-red-500 font-bold' : ''}`}>{v.diasReceber}d</td>
+                              <td className={`px-2 py-1 text-right font-bold ${parseFloat(v.taxaEfetiva) > 5 ? 'text-red-500' : 'text-green-500'}`}>{v.taxaEfetiva}%</td>
+                              <td className="px-2 py-1 text-center">
+                                <button onClick={() => removerVendaMaquininha(idx)} className="text-red-400 hover:text-red-600 text-sm">×</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Resumo */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg text-center`}>
+                        <p className={`text-xs ${themeClasses.textSecondary}`}>Taxa Efetiva Média</p>
+                        <p className={`text-xl font-bold ${parseFloat(resultado.mediaEfetiva) > 5 ? 'text-red-500' : 'text-green-500'}`}>{resultado.mediaEfetiva}%</p>
+                      </div>
+                      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg text-center`}>
+                        <p className={`text-xs ${themeClasses.textSecondary}`}>Dias Médios p/ Receber</p>
+                        <p className={`text-xl font-bold ${resultado.diasMedio > 30 ? 'text-red-500' : 'text-green-500'}`}>{resultado.diasMedio} dias</p>
+                      </div>
+                      <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg text-center`}>
+                        <p className={`text-xs ${themeClasses.textSecondary}`}>Total Perdido em Taxas</p>
+                        <p className="text-xl font-bold text-red-500">
+                          R$ {vendasMaquininha.reduce((s, v) => s + (v.valorBruto - v.valorRecebido), 0).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Var Taxa + Taxa Média Trimestral */}
+                    <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-4 rounded-lg mt-4`}>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                          <p className={`text-xs font-semibold ${themeClasses.textSecondary} mb-1`}>Var Taxa</p>
+                          <p className={`text-2xl font-bold ${resultado.variacoes > 3 ? 'text-red-500' : resultado.variacoes > 0 ? 'text-yellow-500' : 'text-green-500'}`}>
+                            {resultado.variacoes}
+                          </p>
+                          <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                            Sua taxa teve <strong>{resultado.variacoes}</strong> {resultado.variacoes === 1 ? 'variação' : 'variações'} no período
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-xs font-semibold ${themeClasses.textSecondary} mb-1`}>Taxa Média</p>
+                          <p className={`text-2xl font-bold ${parseFloat(resultado.mediaEfetiva) > 5 ? 'text-red-500' : 'text-green-500'}`}>
+                            {resultado.mediaEfetiva}%
+                          </p>
+                          <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                            Sua taxa média ficou em <strong>{resultado.mediaEfetiva}%</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Detalhamento por trimestre */}
+                      {Object.keys(resultado.porTrimestre).length > 0 && (
+                        <div className="mt-3 pt-3 border-t" style={{borderColor: darkMode ? '#374151' : '#E5E7EB'}}>
+                          <p className={`text-xs font-semibold ${themeClasses.textSecondary} mb-2`}>Por Trimestre:</p>
+                          <div className="grid grid-cols-1 gap-1">
+                            {Object.entries(resultado.porTrimestre).map(([trimestre, dados]) => (
+                              <div key={trimestre} className={`flex justify-between items-center text-xs ${themeClasses.text} px-2 py-1 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                                <span className="font-semibold">{trimestre}</span>
+                                <span>
+                                  Taxa média: <strong className={parseFloat(dados.taxaMedia) > 5 ? 'text-red-500' : 'text-green-500'}>{dados.taxaMedia}%</strong>
+                                  {' | '}{dados.variacoes} {dados.variacoes === 1 ? 'variação' : 'variações'}
+                                  {' | '}{dados.count} vendas
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Por bandeira */}
+                    {Object.keys(resultado.porBandeira).length > 1 && (
+                      <div className="mt-4">
+                        <p className={`text-xs font-semibold ${themeClasses.text} mb-2`}>Detalhamento por Bandeira:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(resultado.porBandeira).map(([bandeira, dados]) => (
+                            <div key={bandeira} className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-2 rounded text-xs`}>
+                              <p className={`font-semibold ${themeClasses.text}`}>{bandeira}</p>
+                              <p className={themeClasses.textSecondary}>
+                                Taxa: <span className={parseFloat(dados.taxaMedia) > 5 ? 'text-red-500' : 'text-green-500'}>{dados.taxaMedia}%</span>
+                                {' | '}{dados.diasMedio}d | {dados.count} vendas
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Taxas Ocultas Bancárias */}
             <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} p-4 rounded-lg mb-6`}>
               <h3 className={`font-semibold ${darkMode ? 'text-red-300' : 'text-red-800'} mb-4`}>🏦 Taxas Ocultas Bancárias</h3>
@@ -1018,12 +1538,12 @@ const DiagnosticoFinanceiro = () => {
               </div>
             </div>
 
-            {/* Pró-labore para comparação */}
+            {/* Pró-labore para comparação (já preenchido no Step 2) */}
             <div className={`${themeClasses.highlight} p-4 rounded-lg mb-6`}>
               <label className={`block text-sm font-semibold ${themeClasses.text} mb-2`}>Pró-labore Mensal (R$)</label>
-              <input type="number" value={proLabore || ''} onChange={(e) => setProLabore(parseFloat(e.target.value) || 0)}
+              <input type="number" value={inputProLabore || ''} onChange={(e) => setInputProLabore(parseFloat(e.target.value) || 0)}
                 className={`w-full px-4 py-2 border rounded ${themeClasses.input}`} placeholder="0.00" />
-              <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Para comparar: banco está lucrando mais que você?</p>
+              <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>Valor informado no passo 2 - pode ajustar se necessário</p>
             </div>
 
             <div className="flex gap-4">
@@ -1132,10 +1652,10 @@ const DiagnosticoFinanceiro = () => {
                     </div>
                   </div>
 
-                  {receitaBruta > 0 && (
+                  {(receitaBruta > 0 || vendasMaquininha.length > 0) && (
                     <div className={`${darkMode ? 'bg-red-900/20' : 'bg-red-50'} rounded-lg p-6`}>
                       <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>💰 Custos Financeiros</h3>
-                      <div className="grid grid-cols-3 gap-3 text-center">
+                      <div className={`grid ${vendasMaquininha.length > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 text-center`}>
                         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
                           <p className={`text-xs ${themeClasses.textSecondary}`}>T1 Taxa</p>
                           <p className={`text-lg font-bold ${parseFloat(custos.t1.taxa) > 5 ? 'text-red-500' : 'text-green-500'}`}>{custos.t1.taxa}%</p>
@@ -1148,6 +1668,16 @@ const DiagnosticoFinanceiro = () => {
                           <p className={`text-xs ${themeClasses.textSecondary}`}>T3 Ocultos</p>
                           <p className={`text-lg font-bold ${parseFloat(custos.t3.percentual) > 3 ? 'text-red-500' : 'text-green-500'}`}>R$ {custos.t3.total}</p>
                         </div>
+                        {vendasMaquininha.length > 0 && (() => {
+                          const te = calcularTaxaEfetiva();
+                          return (
+                            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-3 rounded-lg`}>
+                              <p className={`text-xs ${themeClasses.textSecondary}`}>T4 Taxa Efetiva</p>
+                              <p className={`text-lg font-bold ${parseFloat(te.mediaEfetiva) > 5 ? 'text-red-500' : 'text-green-500'}`}>{te.mediaEfetiva}%</p>
+                              <p className={`text-xs ${themeClasses.textSecondary}`}>{te.diasMedio}d médio</p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
