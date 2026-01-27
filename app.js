@@ -63,6 +63,111 @@ const ThemeToggle = ({ darkMode, setDarkMode }) => (
 );
 
 // ============================================
+// COMPONENTE DE GAUGE DO PULMÃO FINANCEIRO
+// ============================================
+const PulmaoGauge = ({ dias, darkMode }) => {
+  const maxDias = 90; // Escala máxima do gráfico
+  const idealDias = 60; // Linha ideal
+  const alertaDias = 30; // Linha de alerta
+
+  const atual = Math.min(Math.max(dias, 0), maxDias);
+  const percentAtual = (atual / maxDias) * 100;
+  const percentIdeal = (idealDias / maxDias) * 100;
+  const percentAlerta = (alertaDias / maxDias) * 100;
+
+  return (
+    <div className="mt-4">
+      <div className="flex justify-between text-xs mb-2">
+        <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>0 dias</span>
+        <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>{maxDias} dias</span>
+      </div>
+
+      {/* Barra de fundo com zonas coloridas */}
+      <div className="relative h-8 rounded-lg overflow-hidden">
+        {/* Zona vermelha (0-30) */}
+        <div
+          className="absolute h-full bg-red-400/30"
+          style={{ left: 0, width: `${percentAlerta}%` }}
+        />
+        {/* Zona amarela (30-60) */}
+        <div
+          className="absolute h-full bg-yellow-400/30"
+          style={{ left: `${percentAlerta}%`, width: `${percentIdeal - percentAlerta}%` }}
+        />
+        {/* Zona verde (60+) */}
+        <div
+          className="absolute h-full bg-emerald-400/30"
+          style={{ left: `${percentIdeal}%`, width: `${100 - percentIdeal}%` }}
+        />
+
+        {/* Barra do valor atual */}
+        <div
+          className={`absolute h-full rounded-lg transition-all duration-700 ${
+            dias < 30 ? 'bg-red-500' : dias < 60 ? 'bg-yellow-500' : 'bg-emerald-500'
+          }`}
+          style={{ width: `${percentAtual}%` }}
+        />
+
+        {/* Linha do ideal (60 dias) */}
+        <div
+          className="absolute h-full w-0.5 bg-emerald-700"
+          style={{ left: `${percentIdeal}%` }}
+        />
+
+        {/* Linha de alerta (30 dias) */}
+        <div
+          className="absolute h-full w-0.5 bg-yellow-600"
+          style={{ left: `${percentAlerta}%` }}
+        />
+      </div>
+
+      {/* Legenda */}
+      <div className="flex justify-between mt-3 text-xs">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-red-500" />
+          <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Risco (&lt;30d)</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-yellow-500" />
+          <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Alerta (30-60d)</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-emerald-500" />
+          <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Ideal (60d+)</span>
+        </div>
+      </div>
+
+      {/* Comparação atual vs ideal */}
+      <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+        <div className="flex justify-between items-center">
+          <div>
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Seu pulmão</p>
+            <p className={`text-lg font-bold ${dias < 30 ? 'text-red-500' : dias < 60 ? 'text-yellow-500' : 'text-emerald-500'}`}>
+              {dias} dias
+            </p>
+          </div>
+          <div className={`text-2xl ${darkMode ? 'text-gray-600' : 'text-gray-300'}`}>vs</div>
+          <div className="text-right">
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Ideal</p>
+            <p className={`text-lg font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>60 dias</p>
+          </div>
+        </div>
+        {dias < 60 && (
+          <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Faltam <span className="font-semibold">{60 - dias} dias</span> para atingir o ideal
+          </p>
+        )}
+        {dias >= 60 && (
+          <p className={`text-xs mt-2 ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+            Parabéns! Você está {dias - 60} dias acima do ideal
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
 // COMPONENTE DE GRÁFICO DE BARRAS HORIZONTAIS
 // ============================================
 const HorizontalBarChart = ({ data, darkMode, formatValue }) => {
@@ -861,8 +966,18 @@ const DiagnosticoFinanceiro = () => {
     .red { color: #DC2626; }
     .yellow { color: #D97706; }
     .resultado-box { background: #F9FAFB; padding: 15px; border-radius: 8px; border: 2px solid #6B7280; margin-top: 12px; }
-    .pulmao-box { background: #F9FAFB; padding: 20px; border-radius: 8px; text-align: center; border: 1px solid #E5E7EB; }
-    .pulmao-dias { font-size: 42px; font-weight: bold; color: #1F2937; }
+    .pulmao-box { background: #F9FAFB; padding: 20px; border-radius: 8px; border: 1px solid #E5E7EB; }
+    .pulmao-dias { font-size: 42px; font-weight: bold; color: #1F2937; text-align: center; }
+    .pulmao-gauge { height: 20px; border-radius: 10px; margin: 15px 0; position: relative; overflow: hidden; }
+    .pulmao-gauge-bg { position: absolute; width: 100%; height: 100%; display: flex; }
+    .pulmao-gauge-red { background: rgba(239, 68, 68, 0.3); flex: 1; }
+    .pulmao-gauge-yellow { background: rgba(245, 158, 11, 0.3); flex: 1; }
+    .pulmao-gauge-green { background: rgba(16, 185, 129, 0.3); flex: 1; }
+    .pulmao-gauge-fill { position: absolute; height: 100%; border-radius: 10px; }
+    .pulmao-legend { display: flex; justify-content: space-between; font-size: 9px; margin-top: 8px; }
+    .pulmao-legend span { display: flex; align-items: center; gap: 4px; }
+    .pulmao-legend .dot { width: 8px; height: 8px; border-radius: 2px; }
+    .pulmao-comparison { display: flex; justify-content: space-around; margin-top: 15px; padding: 10px; background: white; border-radius: 6px; }
     .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 11px; margin-top: 10px; }
     .badge.red { background: #F3F4F6; color: #DC2626; border: 1px solid #DC2626; }
     .badge.yellow { background: #F3F4F6; color: #D97706; border: 1px solid #D97706; }
@@ -953,9 +1068,40 @@ const DiagnosticoFinanceiro = () => {
         <h3>2. Pulmão Financeiro</h3>
         <div class="pulmao-box">
           <p class="pulmao-dias">${pulmao.dias}</p>
-          <p style="color: #6B7280;">dias (${pulmao.meses} meses)</p>
-          <span class="badge ${pulmao.cor}">${pulmao.classificacao}</span>
-          <p style="font-size: 11px; color: #6B7280; margin-top: 12px;">CLD: R$ ${pulmao.cld}</p>
+          <p style="color: #6B7280; text-align: center;">dias (${pulmao.meses} meses)</p>
+
+          <!-- Gráfico de Gauge -->
+          <div class="pulmao-gauge">
+            <div class="pulmao-gauge-bg">
+              <div class="pulmao-gauge-red"></div>
+              <div class="pulmao-gauge-yellow"></div>
+              <div class="pulmao-gauge-green"></div>
+            </div>
+            <div class="pulmao-gauge-fill" style="width: ${Math.min(Math.max(pulmao.dias, 0), 90) / 90 * 100}%; background: ${pulmao.dias < 30 ? '#EF4444' : pulmao.dias < 60 ? '#F59E0B' : '#10B981'};"></div>
+          </div>
+
+          <div class="pulmao-legend">
+            <span><div class="dot" style="background: #EF4444;"></div> Risco (&lt;30d)</span>
+            <span><div class="dot" style="background: #F59E0B;"></div> Alerta (30-60d)</span>
+            <span><div class="dot" style="background: #10B981;"></div> Ideal (60d+)</span>
+          </div>
+
+          <div class="pulmao-comparison">
+            <div style="text-align: center;">
+              <p style="font-size: 10px; color: #6B7280;">Seu pulmão</p>
+              <p style="font-size: 18px; font-weight: bold; color: ${pulmao.dias < 30 ? '#DC2626' : pulmao.dias < 60 ? '#D97706' : '#059669'};">${pulmao.dias} dias</p>
+            </div>
+            <div style="font-size: 18px; color: #D1D5DB; display: flex; align-items: center;">vs</div>
+            <div style="text-align: center;">
+              <p style="font-size: 10px; color: #6B7280;">Ideal</p>
+              <p style="font-size: 18px; font-weight: bold; color: #059669;">60 dias</p>
+            </div>
+          </div>
+
+          <p style="font-size: 10px; color: #6B7280; margin-top: 10px; text-align: center;">
+            ${pulmao.dias < 60 ? `Faltam <strong>${60 - pulmao.dias} dias</strong> para atingir o ideal` : `Parabéns! Você está ${pulmao.dias - 60} dias acima do ideal`}
+          </p>
+          <p style="font-size: 10px; color: #9CA3AF; margin-top: 8px; text-align: center;">CLD: R$ ${pulmao.cld}</p>
         </div>
         ${receitaBruta > 0 || vendasMaquininha.length > 0 ? `
         <div style="margin-top: 15px;">
@@ -1697,14 +1843,7 @@ const DiagnosticoFinanceiro = () => {
                 <div className="space-y-6">
                   <div className={`${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} rounded-lg p-6`}>
                     <h3 className={`text-lg font-semibold ${themeClasses.text} mb-4`}>Pulmão Financeiro</h3>
-                    <div className="text-center">
-                      <p className={`text-5xl font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-500'}`}>{pulmao.dias}</p>
-                      <p className={themeClasses.textSecondary}>dias ({pulmao.meses} meses)</p>
-                      <span className={`inline-block mt-3 px-4 py-2 rounded-full font-semibold ${
-                        pulmao.cor === 'red' ? 'bg-red-100 text-red-800' : 
-                        pulmao.cor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                      }`}>{pulmao.classificacao}</span>
-                    </div>
+                    <PulmaoGauge dias={parseInt(pulmao.dias)} darkMode={darkMode} />
                   </div>
 
                   {(receitaBruta > 0 || vendasMaquininha.length > 0) && (
